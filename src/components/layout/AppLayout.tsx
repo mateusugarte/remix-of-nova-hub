@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import DockMorph from '@/components/ui/dock-morph';
 import InfiniteGrid from '@/components/ui/infinite-grid';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -54,6 +55,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
   return (
     <InfiniteGrid>
       <div className="min-h-screen pb-24">
+        <div className="fixed top-4 right-4 z-40">
+          <ThemeToggle />
+        </div>
         <main className="p-6 lg:p-8">
           {children}
         </main>

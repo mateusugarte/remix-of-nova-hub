@@ -49,13 +49,13 @@ export const InfiniteGrid = ({ children, className }: InfiniteGridProps) => {
       )}
     >
       {/* Static grid layer */}
-      <div className="absolute inset-0 z-0 opacity-[0.03]">
+      <div className="absolute inset-0 z-0 opacity-[0.02] dark:opacity-[0.03]">
         <GridPattern offsetX={gridOffsetX} offsetY={gridOffsetY} />
       </div>
       
       {/* Mouse-following grid layer */}
       <motion.div 
-        className="absolute inset-0 z-0 opacity-20"
+        className="absolute inset-0 z-0 opacity-10 dark:opacity-20"
         style={{ maskImage, WebkitMaskImage: maskImage }}
       >
         <GridPattern offsetX={gridOffsetX} offsetY={gridOffsetY} />
@@ -63,8 +63,8 @@ export const InfiniteGrid = ({ children, className }: InfiniteGridProps) => {
 
       {/* Gradient blobs */}
       <div className="absolute inset-0 pointer-events-none z-0">
-        <div className="absolute right-[-15%] top-[-15%] w-[35%] h-[35%] rounded-full bg-primary/10 blur-[120px]" />
-        <div className="absolute left-[-10%] bottom-[-15%] w-[30%] h-[30%] rounded-full bg-primary/5 blur-[100px]" />
+        <div className="absolute right-[-15%] top-[-15%] w-[35%] h-[35%] rounded-full bg-primary/5 dark:bg-primary/10 blur-[120px]" />
+        <div className="absolute left-[-10%] bottom-[-15%] w-[30%] h-[30%] rounded-full bg-primary/3 dark:bg-primary/5 blur-[100px]" />
       </div>
 
       {/* Content */}
