@@ -449,12 +449,21 @@ export default function Tarefas() {
             Organize sua semana de trabalho
           </p>
         </div>
-        <Button onClick={handleStartPlanning} className="btn-scale">
-          <Play className="w-4 h-4 mr-2" />
-          {weeklyPlanning?.is_completed
-            ? 'Editar Planejamento'
-            : 'Iniciar Planejamento'}
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleStartPlanning} className="btn-scale">
+            <Plus className="w-4 h-4 mr-2" />
+            Iniciar Planejamento
+          </Button>
+          {weeklyPlanning && (
+            <Button onClick={() => {
+              setSelectedWeek({ start: weekStart, end: weekEnd });
+              setIsPlanningWizardOpen(true);
+            }} variant="outline" className="btn-scale">
+              <Edit className="w-4 h-4 mr-2" />
+              Editar Planejamento
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Metrics */}
