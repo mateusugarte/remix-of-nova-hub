@@ -213,16 +213,38 @@ export default function Tarefas() {
       .gte('scheduled_date', monthStartStr)
       .lte('scheduled_date', monthEndStr);
 
-    const { data: nextTaskData } = await supabase
+    const currentTime = format(today, 'HH:mm');
+    const todayStr = format(today, 'yyyy-MM-dd');
+    
+    // First try to get a task for today that hasn't passed yet
+    const { data: todayNextTask } = await supabase
       .from('tasks')
       .select('*')
       .eq('user_id', user.id)
       .eq('status', 'pending')
-      .gte('scheduled_date', format(today, 'yyyy-MM-dd'))
-      .order('scheduled_date', { ascending: true })
+      .eq('scheduled_date', todayStr)
+      .gte('scheduled_time', currentTime)
       .order('scheduled_time', { ascending: true })
       .limit(1)
       .maybeSingle();
+
+    let nextTaskData = todayNextTask;
+
+    // If no task for today, get the next upcoming task
+    if (!nextTaskData) {
+      const { data: futureTask } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'pending')
+        .gt('scheduled_date', todayStr)
+        .order('scheduled_date', { ascending: true })
+        .order('scheduled_time', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      
+      nextTaskData = futureTask;
+    }
 
     setStats({
       totalMonth: totalMonth || 0,
@@ -449,20 +471,18 @@ export default function Tarefas() {
             Organize sua semana de trabalho
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={handleStartPlanning} className="btn-scale">
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={handleStartPlanning} className="btn-scale" variant="default">
             <Plus className="w-4 h-4 mr-2" />
-            Iniciar Planejamento
+            Novo Planejamento
           </Button>
-          {weeklyPlanning && (
-            <Button onClick={() => {
-              setSelectedWeek({ start: weekStart, end: weekEnd });
-              setIsPlanningWizardOpen(true);
-            }} variant="outline" className="btn-scale">
-              <Edit className="w-4 h-4 mr-2" />
-              Editar Planejamento
-            </Button>
-          )}
+          <Button onClick={() => {
+            setSelectedWeek({ start: weekStart, end: weekEnd });
+            setIsPlanningWizardOpen(true);
+          }} variant="outline" className="btn-scale">
+            <Edit className="w-4 h-4 mr-2" />
+            Editar Semana Atual
+          </Button>
         </div>
       </div>
 
