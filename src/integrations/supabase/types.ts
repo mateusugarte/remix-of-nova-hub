@@ -139,6 +139,47 @@ export type Database = {
           },
         ]
       }
+      goals: {
+        Row: {
+          created_at: string | null
+          current_value: number | null
+          id: string
+          monthly_plan_id: string
+          target_value: number | null
+          title: string
+          unit: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_value?: number | null
+          id?: string
+          monthly_plan_id: string
+          target_value?: number | null
+          title: string
+          unit?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_value?: number | null
+          id?: string
+          monthly_plan_id?: string
+          target_value?: number | null
+          title?: string
+          unit?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goals_monthly_plan_id_fkey"
+            columns: ["monthly_plan_id"]
+            isOneToOne: false
+            referencedRelation: "monthly_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       implementation_attachments: {
         Row: {
           created_at: string | null
@@ -431,6 +472,36 @@ export type Database = {
         }
         Relationships: []
       }
+      monthly_plans: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          month: number
+          updated_at: string | null
+          user_id: string
+          year: number
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          month: number
+          updated_at?: string | null
+          user_id: string
+          year: number
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          month?: number
+          updated_at?: string | null
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
       operacoes: {
         Row: {
           banco: string
@@ -571,6 +642,164 @@ export type Database = {
           },
         ]
       }
+      process_phases: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          order_index: number | null
+          process_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          order_index?: number | null
+          process_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          order_index?: number | null
+          process_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "process_phases_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      process_tag_relations: {
+        Row: {
+          id: string
+          process_id: string
+          tag_id: string
+        }
+        Insert: {
+          id?: string
+          process_id: string
+          tag_id: string
+        }
+        Update: {
+          id?: string
+          process_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "process_tag_relations_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "process_tag_relations_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "process_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      process_tags: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      processes: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          cost: number | null
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          notes: string | null
+          price: number | null
+          profit_margin: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          cost?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          price?: number | null
+          profit_margin?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          cost?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          price?: number | null
+          profit_margin?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -672,6 +901,47 @@ export type Database = {
           was_rejected?: boolean | null
         }
         Relationships: []
+      }
+      sales: {
+        Row: {
+          amount: number
+          created_at: string | null
+          description: string
+          id: string
+          notes: string | null
+          product_id: string | null
+          sale_date: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string | null
+          description: string
+          id?: string
+          notes?: string | null
+          product_id?: string | null
+          sale_date?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          description?: string
+          id?: string
+          notes?: string | null
+          product_id?: string | null
+          sale_date?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       task_templates: {
         Row: {
