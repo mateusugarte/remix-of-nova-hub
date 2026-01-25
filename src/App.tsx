@@ -16,6 +16,7 @@ import Prospeccao from "@/pages/Prospeccao";
 import LeadsInbound from "@/pages/LeadsInbound";
 import Implementacoes from "@/pages/Implementacoes";
 import Pensamentos from "@/pages/Pensamentos";
+import ProcessosEPlanejamentos from "@/pages/ProcessosEPlanejamentos";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -120,6 +121,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Pensamentos />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/processos"
+        element={
+          <ProtectedRoute>
+            <ProcessosEPlanejamentos />
           </ProtectedRoute>
         }
       />
