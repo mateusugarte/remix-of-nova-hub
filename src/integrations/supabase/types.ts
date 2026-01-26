@@ -183,6 +183,113 @@ export type Database = {
           },
         ]
       }
+      client_payments: {
+        Row: {
+          amount: number
+          client_id: string
+          created_at: string | null
+          due_date: string
+          id: string
+          is_paid: boolean | null
+          notes: string | null
+          paid_at: string | null
+        }
+        Insert: {
+          amount?: number
+          client_id: string
+          created_at?: string | null
+          due_date: string
+          id?: string
+          is_paid?: boolean | null
+          notes?: string | null
+          paid_at?: string | null
+        }
+        Update: {
+          amount?: number
+          client_id?: string
+          created_at?: string | null
+          due_date?: string
+          id?: string
+          is_paid?: boolean | null
+          notes?: string | null
+          paid_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_payments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clients: {
+        Row: {
+          contract_value: number | null
+          created_at: string | null
+          current_phase_id: string | null
+          email: string | null
+          id: string
+          instagram: string | null
+          name: string
+          notes: string | null
+          phone: string | null
+          product_id: string | null
+          recurrence_value: number | null
+          start_date: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          contract_value?: number | null
+          created_at?: string | null
+          current_phase_id?: string | null
+          email?: string | null
+          id?: string
+          instagram?: string | null
+          name: string
+          notes?: string | null
+          phone?: string | null
+          product_id?: string | null
+          recurrence_value?: number | null
+          start_date?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          contract_value?: number | null
+          created_at?: string | null
+          current_phase_id?: string | null
+          email?: string | null
+          id?: string
+          instagram?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          product_id?: string | null
+          recurrence_value?: number | null
+          start_date?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clients_current_phase_id_fkey"
+            columns: ["current_phase_id"]
+            isOneToOne: false
+            referencedRelation: "process_tags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clients_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_ideas: {
         Row: {
           content_type: string
@@ -971,6 +1078,7 @@ export type Database = {
           created_at: string | null
           description: string | null
           id: string
+          is_client_process: boolean | null
           title: string
           updated_at: string | null
           user_id: string
@@ -979,6 +1087,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          is_client_process?: boolean | null
           title: string
           updated_at?: string | null
           user_id: string
@@ -987,6 +1096,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          is_client_process?: boolean | null
           title?: string
           updated_at?: string | null
           user_id?: string

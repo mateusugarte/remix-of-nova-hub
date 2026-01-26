@@ -31,7 +31,9 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Plus, Trash2, Edit, Tag, GripVertical, X, Target } from 'lucide-react';
+import { Plus, Trash2, Edit, Tag, GripVertical, X, Target, Users } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 
 interface ProcessTag {
   id: string;
@@ -50,6 +52,7 @@ interface Process {
   id: string;
   title: string;
   description: string | null;
+  is_client_process: boolean;
   phases: ProcessPhase[];
   tags: ProcessTag[];
 }
@@ -71,6 +74,7 @@ export default function ProcessesSection() {
   const [processDescription, setProcessDescription] = useState('');
   const [processPhases, setProcessPhases] = useState<{ name: string; description: string }[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [isClientProcess, setIsClientProcess] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState('#93153B');
 
@@ -114,6 +118,7 @@ export default function ProcessesSection() {
           id: process.id,
           title: process.title,
           description: process.description,
+          is_client_process: process.is_client_process || false,
           phases: phases || [],
           tags: processTags || [],
         });
@@ -149,12 +154,14 @@ export default function ProcessesSection() {
       setProcessDescription(process.description || '');
       setProcessPhases(process.phases.map(p => ({ name: p.name, description: p.description || '' })));
       setSelectedTags(process.tags.map(t => t.id));
+      setIsClientProcess(process.is_client_process || false);
     } else {
       setEditingProcess(null);
       setProcessTitle('');
       setProcessDescription('');
       setProcessPhases([{ name: '', description: '' }]);
       setSelectedTags([]);
+      setIsClientProcess(false);
     }
     setShowProcessDialog(true);
   };
@@ -167,7 +174,7 @@ export default function ProcessesSection() {
         // Update process
         const { error: processError } = await supabase
           .from('processes')
-          .update({ title: processTitle, description: processDescription })
+          .update({ title: processTitle, description: processDescription, is_client_process: isClientProcess })
           .eq('id', editingProcess.id);
 
         if (processError) throw processError;
@@ -209,6 +216,7 @@ export default function ProcessesSection() {
             user_id: user.id,
             title: processTitle,
             description: processDescription || null,
+            is_client_process: isClientProcess,
           })
           .select()
           .single();
@@ -398,19 +406,23 @@ export default function ProcessesSection() {
                       </Button>
                     </div>
                   </div>
-                  {process.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {process.tags.map(tag => (
-                        <Badge
-                          key={tag.id}
-                          style={{ backgroundColor: tag.color }}
-                          className="text-white text-xs"
-                        >
-                          {tag.name}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {process.is_client_process && (
+                      <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        Clientes
+                      </Badge>
+                    )}
+                    {process.tags.map(tag => (
+                      <Badge
+                        key={tag.id}
+                        style={{ backgroundColor: tag.color }}
+                        className="text-white text-xs"
+                      >
+                        {tag.name}
+                      </Badge>
+                    ))}
+                  </div>
                 </CardHeader>
                 {process.phases.length > 0 && (
                   <CardContent>
@@ -490,6 +502,23 @@ export default function ProcessesSection() {
                 placeholder="Descrição do processo (opcional)"
                 rows={2}
               />
+            </div>
+
+            <div className="flex items-center space-x-2 p-3 rounded-lg bg-secondary/50 border border-border">
+              <Checkbox
+                id="isClientProcess"
+                checked={isClientProcess}
+                onCheckedChange={(checked) => setIsClientProcess(!!checked)}
+              />
+              <div className="grid gap-1.5 leading-none">
+                <Label htmlFor="isClientProcess" className="flex items-center gap-2 cursor-pointer">
+                  <Users className="h-4 w-4 text-primary" />
+                  Processo para Clientes
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  As etiquetas deste processo aparecerão como fases na página de Clientes
+                </p>
+              </div>
             </div>
 
             <div className="space-y-2">

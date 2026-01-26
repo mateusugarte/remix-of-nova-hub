@@ -18,6 +18,7 @@ import TrafegoPago from "@/pages/TrafegoPago";
 import Implementacoes from "@/pages/Implementacoes";
 import Pensamentos from "@/pages/Pensamentos";
 import ProcessosEPlanejamentos from "@/pages/ProcessosEPlanejamentos";
+import Clientes from "@/pages/Clientes";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -138,6 +139,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <ProcessosEPlanejamentos />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/clientes"
+        element={
+          <ProtectedRoute>
+            <Clientes />
           </ProtectedRoute>
         }
       />
