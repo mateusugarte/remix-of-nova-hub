@@ -682,6 +682,7 @@ export type Database = {
           lead_score: number | null
           meeting_date: string | null
           nicho: string | null
+          no_show: boolean | null
           nome_dono: string | null
           nome_lead: string | null
           notes: string | null
@@ -705,6 +706,7 @@ export type Database = {
           lead_score?: number | null
           meeting_date?: string | null
           nicho?: string | null
+          no_show?: boolean | null
           nome_dono?: string | null
           nome_lead?: string | null
           notes?: string | null
@@ -728,6 +730,7 @@ export type Database = {
           lead_score?: number | null
           meeting_date?: string | null
           nicho?: string | null
+          no_show?: boolean | null
           nome_dono?: string | null
           nome_lead?: string | null
           notes?: string | null

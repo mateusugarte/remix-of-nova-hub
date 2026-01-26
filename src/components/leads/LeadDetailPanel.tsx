@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -25,7 +26,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   Phone, Instagram, Mail, Building2, DollarSign, Calendar,
-  User, FileText, Plus, Trash2, Save, Tag
+  User, FileText, Plus, Trash2, Save, Tag, UserX
 } from 'lucide-react';
 import LeadScoreBadge, { getScoreCategory } from '@/components/kanban/LeadScoreBadge';
 import { LeadChannel } from './ChannelManager';
@@ -48,6 +49,7 @@ interface LeadData {
   created_at: string;
   lead_score: number | null;
   channel_id: string | null;
+  no_show: boolean | null;
 }
 
 interface LeadDetailPanelProps {
@@ -82,6 +84,7 @@ export default function LeadDetailPanel({
     notes: '',
     lead_score: 50,
     channel_id: '',
+    no_show: false,
   });
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -102,6 +105,7 @@ export default function LeadDetailPanel({
         notes: lead.notes || '',
         lead_score: lead.lead_score || 50,
         channel_id: lead.channel_id || '',
+        no_show: lead.no_show || false,
       });
     } else {
       setFormData({
@@ -118,6 +122,7 @@ export default function LeadDetailPanel({
         notes: '',
         lead_score: 50,
         channel_id: '',
+        no_show: false,
       });
     }
   }, [lead, isNew, open]);
@@ -140,6 +145,7 @@ export default function LeadDetailPanel({
       notes: formData.notes || null,
       lead_score: formData.lead_score,
       channel_id: formData.channel_id || null,
+      no_show: formData.no_show,
     };
 
     try {
@@ -402,6 +408,23 @@ export default function LeadDetailPanel({
                 />
               </div>
             </div>
+
+            {/* No-Show Checkbox - only show when meeting is scheduled */}
+            {formData.meeting_date && (
+              <div className="flex items-center space-x-3 p-4 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                <Checkbox
+                  id="no_show"
+                  checked={formData.no_show}
+                  onCheckedChange={(checked) => setFormData({ ...formData, no_show: !!checked })}
+                />
+                <div className="flex items-center gap-2">
+                  <UserX className="w-4 h-4 text-orange-500" />
+                  <Label htmlFor="no_show" className="text-sm font-medium cursor-pointer">
+                    Lead não compareceu (No-Show)
+                  </Label>
+                </div>
+              </div>
+            )}
 
             {/* Sócios */}
             <div className="space-y-2">
