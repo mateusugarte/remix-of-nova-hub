@@ -415,10 +415,12 @@ export type Database = {
       inbound_leads: {
         Row: {
           created_at: string | null
+          custom_fields: Json | null
           email: string | null
           faturamento: string | null
           id: string
           instagram_link: string | null
+          lead_score: number | null
           meeting_date: string | null
           nicho: string | null
           nome_dono: string | null
@@ -429,15 +431,18 @@ export type Database = {
           socios: Json | null
           source: string | null
           status: string
+          template_id: string | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
           created_at?: string | null
+          custom_fields?: Json | null
           email?: string | null
           faturamento?: string | null
           id?: string
           instagram_link?: string | null
+          lead_score?: number | null
           meeting_date?: string | null
           nicho?: string | null
           nome_dono?: string | null
@@ -448,15 +453,18 @@ export type Database = {
           socios?: Json | null
           source?: string | null
           status?: string
+          template_id?: string | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
           created_at?: string | null
+          custom_fields?: Json | null
           email?: string | null
           faturamento?: string | null
           id?: string
           instagram_link?: string | null
+          lead_score?: number | null
           meeting_date?: string | null
           nicho?: string | null
           nome_dono?: string | null
@@ -467,6 +475,45 @@ export type Database = {
           socios?: Json | null
           source?: string | null
           status?: string
+          template_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbound_leads_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "lead_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_templates: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          fields: Json
+          id: string
+          name: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          fields?: Json
+          id?: string
+          name: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          fields?: Json
+          id?: string
+          name?: string
           updated_at?: string | null
           user_id?: string
         }

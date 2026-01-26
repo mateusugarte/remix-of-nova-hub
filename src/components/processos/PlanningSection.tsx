@@ -514,116 +514,153 @@ export default function PlanningSection() {
             </Button>
           </div>
 
-          <div className="grid gap-6">
+          <div className="grid gap-6 lg:grid-cols-2">
             <AnimatePresence>
-              {monthlyPlans.map((plan, index) => (
-                <motion.div
-                  key={plan.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ delay: index * 0.1 }}
-                >
-                  <Card className="card-hover">
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <CardTitle className="flex items-center gap-2">
-                            <Calendar className="h-5 w-5 text-primary" />
-                            {MONTHS[plan.month - 1]} {plan.year}
-                          </CardTitle>
-                          {plan.description && (
-                            <p className="text-sm text-muted-foreground mt-1">{plan.description}</p>
-                          )}
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenPlanDialog(plan)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDeleteItem({ type: 'plan', id: plan.id })}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {/* Goals */}
-                      <div className="space-y-3">
-                        {plan.goals.map(goal => {
-                          const progress = goal.target_value > 0
-                            ? Math.min((goal.current_value / goal.target_value) * 100, 100)
-                            : 0;
+              {monthlyPlans.map((plan, index) => {
+                const totalProgress = plan.goals.length > 0
+                  ? plan.goals.reduce((sum, g) => {
+                      const p = g.target_value > 0 ? (g.current_value / g.target_value) * 100 : 0;
+                      return sum + Math.min(p, 100);
+                    }, 0) / plan.goals.length
+                  : 0;
 
-                          return (
-                            <div key={goal.id} className="p-3 rounded-lg bg-secondary/50 space-y-2">
-                              <div className="flex items-center justify-between">
-                                <span className="font-medium">{goal.title}</span>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm text-muted-foreground">
-                                    {goal.current_value} / {goal.target_value} {goal.unit}
-                                  </span>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6"
-                                    onClick={() => handleOpenGoalDialog(plan.id, goal)}
-                                  >
-                                    <Edit className="h-3 w-3" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6"
-                                    onClick={() => setDeleteItem({ type: 'goal', id: goal.id })}
-                                  >
-                                    <Trash2 className="h-3 w-3 text-destructive" />
-                                  </Button>
+                return (
+                  <motion.div
+                    key={plan.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <Card className="card-hover h-full">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-1">
+                            <CardTitle className="flex items-center gap-2 text-xl">
+                              <div className="p-2 rounded-lg bg-primary/10">
+                                <Calendar className="h-5 w-5 text-primary" />
+                              </div>
+                              {MONTHS[plan.month - 1]} {plan.year}
+                            </CardTitle>
+                            {plan.description && (
+                              <p className="text-sm text-muted-foreground max-w-md">{plan.description}</p>
+                            )}
+                          </div>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleOpenPlanDialog(plan)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setDeleteItem({ type: 'plan', id: plan.id })}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        {/* Overall Progress */}
+                        {plan.goals.length > 0 && (
+                          <div className="mt-4 p-3 rounded-lg bg-secondary/30">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium">Progresso Geral</span>
+                              <span className="text-sm text-primary font-semibold">{totalProgress.toFixed(0)}%</span>
+                            </div>
+                            <Progress value={totalProgress} className="h-3" />
+                          </div>
+                        )}
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {/* Goals */}
+                        <div className="space-y-3">
+                          {plan.goals.map(goal => {
+                            const progress = goal.target_value > 0
+                              ? Math.min((goal.current_value / goal.target_value) * 100, 100)
+                              : 0;
+
+                            return (
+                              <div key={goal.id} className="p-4 rounded-xl bg-secondary/40 border border-border/30 space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <TrendingUp className="h-4 w-4 text-primary" />
+                                    <span className="font-medium text-base">{goal.title}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      onClick={() => handleOpenGoalDialog(plan.id, goal)}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      onClick={() => setDeleteItem({ type: 'goal', id: goal.id })}
+                                    >
+                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                  </div>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                  <Progress value={progress} className="h-3" />
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-muted-foreground">
+                                      <span className="font-semibold text-foreground">{goal.current_value}</span> / {goal.target_value} {goal.unit}
+                                    </span>
+                                    <span className={`font-medium ${progress >= 100 ? 'text-green-500' : progress >= 50 ? 'text-yellow-500' : 'text-orange-500'}`}>
+                                      {progress.toFixed(0)}%
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
-                              <Progress value={progress} className="h-2" />
-                              <div className="text-xs text-muted-foreground text-right">
-                                {progress.toFixed(1)}% concluído
-                              </div>
+                            );
+                          })}
+
+                          {plan.goals.length === 0 && (
+                            <div className="text-center py-6 text-muted-foreground bg-secondary/20 rounded-lg">
+                              <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                              <p className="text-sm">Nenhuma meta definida</p>
                             </div>
-                          );
-                        })}
+                          )}
+                        </div>
 
-                        {plan.goals.length === 0 && (
-                          <p className="text-sm text-muted-foreground text-center py-4">
-                            Nenhuma meta definida
-                          </p>
-                        )}
-                      </div>
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => handleOpenGoalDialog(plan.id)}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Adicionar Meta
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => handleOpenGoalDialog(plan.id)}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Adicionar Meta
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                );
+              })}
             </AnimatePresence>
 
             {monthlyPlans.length === 0 && (
-              <Card className="border-dashed">
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <TrendingUp className="h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">Nenhum planejamento criado</p>
-                  <Button className="mt-4" onClick={() => handleOpenPlanDialog()}>
+              <Card className="border-dashed col-span-full">
+                <CardContent className="flex flex-col items-center justify-center py-16">
+                  <div className="p-4 rounded-full bg-primary/10 mb-4">
+                    <TrendingUp className="h-12 w-12 text-primary" />
+                  </div>
+                  <h3 className="text-lg font-medium mb-2">Nenhum planejamento criado</h3>
+                  <p className="text-muted-foreground text-center mb-4 max-w-sm">
+                    Crie seu primeiro planejamento mensal para definir metas e acompanhar seu progresso.
+                  </p>
+                  <Button onClick={() => handleOpenPlanDialog()}>
+                    <Plus className="h-4 w-4 mr-2" />
                     Criar primeiro planejamento
                   </Button>
                 </CardContent>
@@ -645,7 +682,7 @@ export default function PlanningSection() {
             </Button>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <AnimatePresence>
               {products.map((product, index) => (
                 <motion.div
@@ -656,55 +693,65 @@ export default function PlanningSection() {
                   transition={{ delay: index * 0.05 }}
                 >
                   <Card className="card-hover h-full">
-                    <CardHeader className="pb-2">
+                    <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
-                        <CardTitle className="text-base">{product.name}</CardTitle>
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-primary/10">
+                            <Package className="h-5 w-5 text-primary" />
+                          </div>
+                          <CardTitle className="text-lg">{product.name}</CardTitle>
+                        </div>
                         <div className="flex gap-1">
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7"
+                            className="h-8 w-8"
                             onClick={() => handleOpenProductDialog(product)}
                           >
-                            <Edit className="h-3 w-3" />
+                            <Edit className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7"
+                            className="h-8 w-8"
                             onClick={() => setDeleteItem({ type: 'product', id: product.id })}
                           >
-                            <Trash2 className="h-3 w-3 text-destructive" />
+                            <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent className="space-y-2">
+                    <CardContent className="space-y-4">
                       {product.description && (
                         <p className="text-sm text-muted-foreground">{product.description}</p>
                       )}
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div>
-                          <span className="text-muted-foreground">Preço:</span>
-                          <span className="ml-2 font-medium">
+                      
+                      <div className="grid grid-cols-2 gap-4 p-4 rounded-lg bg-secondary/30">
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground uppercase tracking-wide">Preço</span>
+                          <p className="text-lg font-semibold text-foreground">
                             R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </span>
+                          </p>
                         </div>
-                        <div>
-                          <span className="text-muted-foreground">Custo:</span>
-                          <span className="ml-2">
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground uppercase tracking-wide">Custo</span>
+                          <p className="text-lg font-medium text-muted-foreground">
                             R$ {product.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </span>
+                          </p>
                         </div>
                       </div>
-                      <div className="pt-2 border-t">
-                        <span className="text-sm text-muted-foreground">Margem:</span>
-                        <span className={`ml-2 font-medium ${product.profit_margin >= 0 ? 'text-success' : 'text-destructive'}`}>
+                      
+                      <div className="flex items-center justify-between p-4 rounded-lg border border-border/50">
+                        <span className="text-sm font-medium">Margem de Lucro</span>
+                        <span className={`text-xl font-bold ${product.profit_margin >= 0 ? 'text-green-500' : 'text-destructive'}`}>
                           {product.profit_margin.toFixed(1)}%
                         </span>
                       </div>
+                      
                       {product.notes && (
-                        <p className="text-xs text-muted-foreground pt-2 border-t">{product.notes}</p>
+                        <p className="text-xs text-muted-foreground italic pt-2 border-t border-border/30">
+                          📝 {product.notes}
+                        </p>
                       )}
                     </CardContent>
                   </Card>
@@ -714,10 +761,16 @@ export default function PlanningSection() {
 
             {products.length === 0 && (
               <Card className="border-dashed col-span-full">
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Package className="h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">Nenhum produto cadastrado</p>
-                  <Button className="mt-4" onClick={() => handleOpenProductDialog()}>
+                <CardContent className="flex flex-col items-center justify-center py-16">
+                  <div className="p-4 rounded-full bg-primary/10 mb-4">
+                    <Package className="h-12 w-12 text-primary" />
+                  </div>
+                  <h3 className="text-lg font-medium mb-2">Nenhum produto cadastrado</h3>
+                  <p className="text-muted-foreground text-center mb-4 max-w-sm">
+                    Cadastre seus produtos para acompanhar preços, custos e margens de lucro.
+                  </p>
+                  <Button onClick={() => handleOpenProductDialog()}>
+                    <Plus className="h-4 w-4 mr-2" />
                     Cadastrar primeiro produto
                   </Button>
                 </CardContent>

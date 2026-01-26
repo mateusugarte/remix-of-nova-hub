@@ -61,7 +61,7 @@ export default function KanbanBoard<T extends KanbanCardData>({
   };
 
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4 min-h-[500px]">
+    <div className="flex gap-4 overflow-x-auto pb-4 min-h-[600px]">
       {columns.map((column) => {
         const columnItems = getColumnItems(column.id);
         const isDragOver = dragOverColumn === column.id;
@@ -70,7 +70,7 @@ export default function KanbanBoard<T extends KanbanCardData>({
           <div
             key={column.id}
             className={cn(
-              'flex-shrink-0 w-72 bg-card/50 rounded-xl border border-border/50 backdrop-blur-sm transition-all duration-200',
+              'flex-shrink-0 w-80 bg-card/50 rounded-xl border border-border/50 backdrop-blur-sm transition-all duration-200',
               isDragOver && 'ring-2 ring-primary/50 border-primary/50'
             )}
             onDragOver={(e) => handleDragOver(e, column.id)}
@@ -97,7 +97,7 @@ export default function KanbanBoard<T extends KanbanCardData>({
             </div>
 
             {/* Column Content */}
-            <div className="p-2 space-y-2 min-h-[400px]">
+            <div className="p-3 space-y-3 min-h-[500px]">
               <AnimatePresence>
                 {columnItems.map((item) => (
                   <motion.div
