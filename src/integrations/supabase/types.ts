@@ -1036,6 +1036,7 @@ export type Database = {
         Row: {
           created_at: string
           email: string | null
+          icp_description: string | null
           id: string
           key: string | null
           nome: string | null
@@ -1044,6 +1045,7 @@ export type Database = {
         Insert: {
           created_at?: string
           email?: string | null
+          icp_description?: string | null
           id: string
           key?: string | null
           nome?: string | null
@@ -1052,6 +1054,7 @@ export type Database = {
         Update: {
           created_at?: string
           email?: string | null
+          icp_description?: string | null
           id?: string
           key?: string | null
           nome?: string | null

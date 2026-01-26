@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Target, TrendingUp } from 'lucide-react';
+import { Target, TrendingUp, Info } from 'lucide-react';
 import ProcessesSection from '@/components/processos/ProcessesSection';
 import PlanningSection from '@/components/processos/PlanningSection';
+import GeneralInfoSection from '@/components/processos/GeneralInfoSection';
 
 export default function ProcessosEPlanejamentos() {
   const [activeTab, setActiveTab] = useState('processos');
@@ -24,7 +25,7 @@ export default function ProcessosEPlanejamentos() {
       </motion.div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList className="grid w-full max-w-lg grid-cols-3">
           <TabsTrigger value="processos" className="flex items-center gap-2">
             <Target className="h-4 w-4" />
             Processos
@@ -32,6 +33,10 @@ export default function ProcessosEPlanejamentos() {
           <TabsTrigger value="planejamentos" className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4" />
             Planejamentos
+          </TabsTrigger>
+          <TabsTrigger value="info-geral" className="flex items-center gap-2">
+            <Info className="h-4 w-4" />
+            Info Geral
           </TabsTrigger>
         </TabsList>
 
@@ -41,6 +46,10 @@ export default function ProcessosEPlanejamentos() {
 
         <TabsContent value="planejamentos" className="space-y-6">
           <PlanningSection />
+        </TabsContent>
+
+        <TabsContent value="info-geral" className="space-y-6">
+          <GeneralInfoSection />
         </TabsContent>
       </Tabs>
     </div>
