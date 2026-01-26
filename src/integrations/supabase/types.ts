@@ -19,6 +19,7 @@ export type Database = {
           budget: number | null
           created_at: string | null
           end_date: string | null
+          group_id: string | null
           id: string
           name: string
           notes: string | null
@@ -32,6 +33,7 @@ export type Database = {
           budget?: number | null
           created_at?: string | null
           end_date?: string | null
+          group_id?: string | null
           id?: string
           name: string
           notes?: string | null
@@ -45,6 +47,7 @@ export type Database = {
           budget?: number | null
           created_at?: string | null
           end_date?: string | null
+          group_id?: string | null
           id?: string
           name?: string
           notes?: string | null
@@ -54,7 +57,15 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ad_campaigns_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       bancos: {
         Row: {
@@ -71,6 +82,39 @@ export type Database = {
           icone?: string | null
           id?: string
           nome?: string
+        }
+        Relationships: []
+      }
+      campaign_groups: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          planning: string | null
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          planning?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          planning?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
