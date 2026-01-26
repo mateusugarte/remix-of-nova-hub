@@ -600,14 +600,14 @@ export default function Clientes() {
             <div className="space-y-2">
               <Label>Fase Atual</Label>
               <Select 
-                value={selectedClient.current_phase_id || ''} 
-                onValueChange={(v) => handleUpdatePhase(selectedClient.id, v)}
+                value={selectedClient.current_phase_id || '_none'} 
+                onValueChange={(v) => handleUpdatePhase(selectedClient.id, v === '_none' ? '' : v)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione uma fase" />
                 </SelectTrigger>
                 <SelectContent className="bg-card border-border">
-                  <SelectItem value="">Nenhuma</SelectItem>
+                  <SelectItem value="_none">Nenhuma</SelectItem>
                   {phases.map(phase => (
                     <SelectItem key={phase.id} value={phase.id}>
                       <div className="flex items-center gap-2">
@@ -769,12 +769,12 @@ export default function Clientes() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Produto</Label>
-                <Select value={clientProductId} onValueChange={setClientProductId}>
+                <Select value={clientProductId || '_none'} onValueChange={(v) => setClientProductId(v === '_none' ? '' : v)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent className="bg-card border-border">
-                    <SelectItem value="">Nenhum</SelectItem>
+                    <SelectItem value="_none">Nenhum</SelectItem>
                     {products.map(p => (
                       <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                     ))}
@@ -783,12 +783,12 @@ export default function Clientes() {
               </div>
               <div className="space-y-2">
                 <Label>Fase Atual</Label>
-                <Select value={clientPhaseId} onValueChange={setClientPhaseId}>
+                <Select value={clientPhaseId || '_none'} onValueChange={(v) => setClientPhaseId(v === '_none' ? '' : v)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent className="bg-card border-border">
-                    <SelectItem value="">Nenhuma</SelectItem>
+                    <SelectItem value="_none">Nenhuma</SelectItem>
                     {phases.map(phase => (
                       <SelectItem key={phase.id} value={phase.id}>
                         <div className="flex items-center gap-2">
