@@ -4,30 +4,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Users, Settings2, FileText } from 'lucide-react';
+import { Plus, Search, Users, Settings2, Tag } from 'lucide-react';
 import MetricCard from '@/components/dashboard/MetricCard';
 import KanbanBoard, { KanbanColumn } from '@/components/kanban/KanbanBoard';
-import LeadCardLarge from '@/components/kanban/LeadCardLarge';
-import LeadFormDialogEnhanced from '@/components/kanban/LeadFormDialogEnhanced';
-import LeadTemplateDialog from '@/components/kanban/LeadTemplateDialog';
+import LeadCardWithChannel from '@/components/leads/LeadCardWithChannel';
+import LeadDetailPanel from '@/components/leads/LeadDetailPanel';
+import ChannelManager, { LeadChannel } from '@/components/leads/ChannelManager';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-interface TemplateField {
-  id: string;
-  name: string;
-  label: string;
-  type: 'text' | 'number' | 'select' | 'textarea';
-  options?: string[];
-  required?: boolean;
-  scoreWeight?: number;
-}
-
-interface LeadTemplate {
-  id: string;
-  name: string;
-  description: string | null;
-  fields: TemplateField[];
-}
 
 interface InboundLead {
   id: string;
@@ -48,29 +31,32 @@ interface InboundLead {
   lead_score: number | null;
   template_id: string | null;
   custom_fields: Record<string, any> | null;
+  channel_id: string | null;
 }
 
+// New pipeline columns
 const KANBAN_COLUMNS: KanbanColumn[] = [
   { id: 'form_filled', title: 'Preencheu Formulário', color: '#8B5CF6' },
-  { id: 'contacted', title: 'Respondeu Contato', color: '#6B7280' },
-  { id: 'qualified', title: 'Lead Qualificado', color: '#10B981' },
-  { id: 'disqualified', title: 'Lead Desqualificado', color: '#EF4444' },
-  { id: 'meeting_scheduled', title: 'Agendou Reunião', color: '#3B82F6' },
-  { id: 'sale_made', title: 'Venda Feita', color: '#F59E0B' },
+  { id: 'waiting_response', title: 'Aguardando Resposta', color: '#6B7280' },
+  { id: 'qualifying_bant', title: 'Qualificando (BANT)', color: '#F59E0B' },
+  { id: 'meeting_scheduled', title: 'Reunião Agendada', color: '#3B82F6' },
+  { id: 'follow_up', title: 'Follow Up', color: '#06B6D4' },
+  { id: 'sold', title: 'Vendido', color: '#10B981' },
+  { id: 'disqualified', title: 'Desqualificado', color: '#EF4444' },
 ];
 
 export default function LeadsInbound() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [leads, setLeads] = useState<InboundLead[]>([]);
-  const [templates, setTemplates] = useState<LeadTemplate[]>([]);
+  const [channels, setChannels] = useState<LeadChannel[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [scoreFilter, setScoreFilter] = useState<string>('all');
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
+  const [channelFilter, setChannelFilter] = useState<string>('all');
   const [selectedLead, setSelectedLead] = useState<InboundLead | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<LeadTemplate | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isNewLead, setIsNewLead] = useState(false);
+  const [isChannelManagerOpen, setIsChannelManagerOpen] = useState(false);
   const [stats, setStats] = useState({
     total: 0,
     hot: 0,
@@ -83,7 +69,7 @@ export default function LeadsInbound() {
   useEffect(() => {
     if (user) {
       fetchData();
-      fetchTemplates();
+      fetchChannels();
     }
   }, [user]);
 
@@ -110,27 +96,22 @@ export default function LeadsInbound() {
     const good = mappedData.filter((l) => (l.lead_score || 0) >= 60 && (l.lead_score || 0) < 80).length;
     const nurturing = mappedData.filter((l) => (l.lead_score || 0) >= 40 && (l.lead_score || 0) < 60).length;
     const outOfProfile = mappedData.filter((l) => (l.lead_score || 0) < 40).length;
-    const saleMade = mappedData.filter((l) => l.status === 'sale_made').length;
-    const conversionRate = total > 0 ? Math.round((saleMade / total) * 100) : 0;
+    const sold = mappedData.filter((l) => l.status === 'sold').length;
+    const conversionRate = total > 0 ? Math.round((sold / total) * 100) : 0;
 
     setStats({ total, hot, good, nurturing, outOfProfile, conversionRate });
   };
 
-  const fetchTemplates = async () => {
+  const fetchChannels = async () => {
     if (!user) return;
 
     const { data } = await supabase
-      .from('lead_templates')
+      .from('lead_channels')
       .select('*')
       .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+      .order('name');
 
-    const mappedTemplates = (data || []).map((t) => ({
-      ...t,
-      fields: Array.isArray(t.fields) ? (t.fields as unknown as TemplateField[]) : [],
-    }));
-
-    setTemplates(mappedTemplates);
+    setChannels(data || []);
   };
 
   const handleMoveCard = async (cardId: string, newStatus: string) => {
@@ -148,87 +129,19 @@ export default function LeadsInbound() {
 
   const handleCardClick = (lead: InboundLead) => {
     setSelectedLead(lead);
-    setIsFormOpen(true);
+    setIsNewLead(false);
+    setIsDetailOpen(true);
   };
 
-  const handleSubmit = async (formData: any) => {
-    if (!user) return;
-    setLoading(true);
-
-    const dataToSave = {
-      phone_number: formData.phone_number || null,
-      instagram_link: formData.instagram_link || null,
-      email: formData.email || null,
-      nome_lead: formData.nome_lead || null,
-      faturamento: formData.faturamento || null,
-      principal_dor: formData.principal_dor || null,
-      nicho: formData.nicho || null,
-      nome_dono: formData.nome_dono || null,
-      socios: formData.socios.length > 0 ? formData.socios : null,
-      meeting_date: formData.meeting_date || null,
-      notes: formData.notes || null,
-      lead_score: formData.lead_score || 0,
-      template_id: formData.template_id || null,
-      custom_fields: Object.keys(formData.custom_fields).length > 0 ? formData.custom_fields : null,
-    };
-
-    if (selectedLead) {
-      const { error } = await supabase
-        .from('inbound_leads')
-        .update(dataToSave)
-        .eq('id', selectedLead.id);
-
-      if (error) {
-        toast({ title: 'Erro ao atualizar', variant: 'destructive' });
-      } else {
-        toast({ title: 'Lead atualizado!' });
-        setIsFormOpen(false);
-        setSelectedLead(null);
-        fetchData();
-      }
-    } else {
-      const { error } = await supabase.from('inbound_leads').insert({
-        ...dataToSave,
-        user_id: user.id,
-        status: 'form_filled',
-      });
-
-      if (error) {
-        toast({ title: 'Erro ao criar lead', variant: 'destructive' });
-      } else {
-        toast({ title: 'Lead criado!' });
-        setIsFormOpen(false);
-        fetchData();
-      }
-    }
-
-    setLoading(false);
+  const handleNewLead = () => {
+    setSelectedLead(null);
+    setIsNewLead(true);
+    setIsDetailOpen(true);
   };
 
-  const handleDelete = async () => {
-    if (!selectedLead) return;
-    setLoading(true);
-
-    const { error } = await supabase
-      .from('inbound_leads')
-      .delete()
-      .eq('id', selectedLead.id);
-
-    if (error) {
-      toast({ title: 'Erro ao excluir', variant: 'destructive' });
-    } else {
-      toast({ title: 'Lead excluído!' });
-      setIsFormOpen(false);
-      setSelectedLead(null);
-      fetchData();
-    }
-
-    setLoading(false);
-  };
-
-  const handleManageTemplates = () => {
-    setSelectedTemplate(null);
-    setIsTemplateDialogOpen(true);
+  const getChannelById = (channelId: string | null) => {
+    if (!channelId) return null;
+    return channels.find(c => c.id === channelId) || null;
   };
 
   const filteredLeads = leads.filter((lead) => {
@@ -255,6 +168,12 @@ export default function LeadsInbound() {
       if (scoreFilter === 'out' && score >= 40) return false;
     }
 
+    // Channel filter
+    if (channelFilter !== 'all') {
+      if (channelFilter === 'none' && lead.channel_id) return false;
+      if (channelFilter !== 'none' && lead.channel_id !== channelFilter) return false;
+    }
+
     return true;
   });
 
@@ -264,24 +183,15 @@ export default function LeadsInbound() {
         <div>
           <h1 className="text-3xl font-display text-foreground">Leads Inbound</h1>
           <p className="text-muted-foreground mt-1">
-            Gerencie leads com scoring e templates personalizados
+            Pipeline de vendas com scoring e canais de origem
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={handleManageTemplates}
-          >
-            <Settings2 className="w-4 h-4 mr-2" />
-            Templates
+          <Button variant="outline" onClick={() => setIsChannelManagerOpen(true)}>
+            <Tag className="w-4 h-4 mr-2" />
+            Canais
           </Button>
-          <Button
-            onClick={() => {
-              setSelectedLead(null);
-              setIsFormOpen(true);
-            }}
-            className="btn-scale"
-          >
+          <Button onClick={handleNewLead} className="btn-scale">
             <Plus className="w-4 h-4 mr-2" />
             Novo Lead
           </Button>
@@ -340,13 +250,51 @@ export default function LeadsInbound() {
             <SelectItem value="out">🔴 Fora do Perfil (0-39)</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={channelFilter} onValueChange={setChannelFilter}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Filtrar por canal" />
+          </SelectTrigger>
+          <SelectContent className="bg-card border-border z-50">
+            <SelectItem value="all">Todos os Canais</SelectItem>
+            <SelectItem value="none">Sem canal</SelectItem>
+            {channels.map((channel) => (
+              <SelectItem key={channel.id} value={channel.id}>
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: channel.color }}
+                  />
+                  {channel.name}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Templates Info */}
-      {templates.length > 0 && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-secondary/30 rounded-lg p-3">
-          <FileText className="w-4 h-4" />
-          <span>{templates.length} template{templates.length !== 1 ? 's' : ''} disponível</span>
+      {/* Channels Info */}
+      {channels.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {channels.map((channel) => {
+            const count = leads.filter(l => l.channel_id === channel.id).length;
+            return (
+              <div
+                key={channel.id}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm"
+                style={{ 
+                  backgroundColor: `${channel.color}15`,
+                  border: `1px solid ${channel.color}40`
+                }}
+              >
+                <div
+                  className="w-2.5 h-2.5 rounded-full"
+                  style={{ backgroundColor: channel.color }}
+                />
+                <span>{channel.name}</span>
+                <span className="font-semibold">{count}</span>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -357,7 +305,7 @@ export default function LeadsInbound() {
         onMoveCard={handleMoveCard}
         onCardClick={handleCardClick}
         renderCard={(lead) => (
-          <LeadCardLarge
+          <LeadCardWithChannel
             phone_number={lead.phone_number}
             instagram_link={lead.instagram_link}
             email={lead.email}
@@ -370,51 +318,30 @@ export default function LeadsInbound() {
             created_at={lead.created_at}
             lead_score={lead.lead_score || 0}
             notes={lead.notes}
+            channel={getChannelById(lead.channel_id)}
           />
         )}
       />
 
-      {/* Enhanced Form Dialog */}
-      <LeadFormDialogEnhanced
-        open={isFormOpen}
-        onOpenChange={setIsFormOpen}
-        title={selectedLead ? 'Editar Lead' : 'Novo Lead'}
-        isEditing={!!selectedLead}
-        initialData={
-          selectedLead
-            ? {
-                phone_number: selectedLead.phone_number || '',
-                instagram_link: selectedLead.instagram_link || '',
-                email: selectedLead.email || '',
-                nome_lead: selectedLead.nome_lead || '',
-                faturamento: selectedLead.faturamento || '',
-                principal_dor: selectedLead.principal_dor || '',
-                nicho: selectedLead.nicho || '',
-                nome_dono: selectedLead.nome_dono || '',
-                socios: selectedLead.socios || [],
-                meeting_date: selectedLead.meeting_date
-                  ? selectedLead.meeting_date.slice(0, 16)
-                  : '',
-                notes: selectedLead.notes || '',
-                lead_score: selectedLead.lead_score || 50,
-                template_id: selectedLead.template_id || null,
-                custom_fields: selectedLead.custom_fields || {},
-              }
-            : undefined
-        }
-        onSubmit={handleSubmit}
-        onDelete={handleDelete}
-        loading={loading}
-        templates={templates}
-        onManageTemplates={handleManageTemplates}
+      {/* Lead Detail Panel */}
+      <LeadDetailPanel
+        lead={selectedLead}
+        open={isDetailOpen}
+        onClose={() => {
+          setIsDetailOpen(false);
+          setSelectedLead(null);
+          setIsNewLead(false);
+        }}
+        onUpdate={fetchData}
+        channels={channels}
+        isNew={isNewLead}
       />
 
-      {/* Template Dialog */}
-      <LeadTemplateDialog
-        open={isTemplateDialogOpen}
-        onOpenChange={setIsTemplateDialogOpen}
-        template={selectedTemplate}
-        onSave={fetchTemplates}
+      {/* Channel Manager */}
+      <ChannelManager
+        open={isChannelManagerOpen}
+        onOpenChange={setIsChannelManagerOpen}
+        onChannelsUpdate={fetchChannels}
       />
     </div>
   );

@@ -14,6 +14,7 @@ import Tarefas from "@/pages/Tarefas";
 import Postagens from "@/pages/Postagens";
 import Prospeccao from "@/pages/Prospeccao";
 import LeadsInbound from "@/pages/LeadsInbound";
+import TrafegoPago from "@/pages/TrafegoPago";
 import Implementacoes from "@/pages/Implementacoes";
 import Pensamentos from "@/pages/Pensamentos";
 import ProcessosEPlanejamentos from "@/pages/ProcessosEPlanejamentos";
@@ -105,6 +106,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <LeadsInbound />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/trafego-pago"
+        element={
+          <ProtectedRoute>
+            <TrafegoPago />
           </ProtectedRoute>
         }
       />

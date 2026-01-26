@@ -6,9 +6,11 @@ import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import {
   Dialog,
   DialogContent,
@@ -33,10 +35,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Trash2, Edit, Package, TrendingUp, DollarSign, Calendar } from 'lucide-react';
+import {
+  Plus, Trash2, Edit, TrendingUp, DollarSign, Calendar, Target,
+  ChevronLeft, ChevronRight, CheckCircle2, Circle, Award, Flame
+} from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, RadialBarChart, RadialBar, Legend
+} from 'recharts';
 
 interface Goal {
   id: string;
@@ -54,99 +62,49 @@ interface MonthlyPlan {
   goals: Goal[];
 }
 
-interface Product {
-  id: string;
-  name: string;
-  description: string | null;
-  price: number;
-  cost: number;
-  profit_margin: number;
-  notes: string | null;
-}
-
-interface Sale {
-  id: string;
-  description: string;
-  amount: number;
-  sale_date: string;
-  product_id: string | null;
-}
-
 const MONTHS = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
 ];
 
+const COLORS = ['#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#EC4899'];
+
 export default function PlanningSection() {
   const { user } = useAuth();
-  const [activeSubTab, setActiveSubTab] = useState('metas');
   const [monthlyPlans, setMonthlyPlans] = useState<MonthlyPlan[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [sales, setSales] = useState<Sale[]>([]);
-  const [implementations, setImplementations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Selected period for revenue
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  
+  const [selectedMonth, setSelectedMonth] = useState<MonthlyPlan | null>(null);
+
   // Dialogs
   const [showPlanDialog, setShowPlanDialog] = useState(false);
   const [showGoalDialog, setShowGoalDialog] = useState(false);
-  const [showProductDialog, setShowProductDialog] = useState(false);
-  const [showSaleDialog, setShowSaleDialog] = useState(false);
   const [editingPlan, setEditingPlan] = useState<MonthlyPlan | null>(null);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [deleteItem, setDeleteItem] = useState<{ type: string; id: string } | null>(null);
 
   // Form states
   const [planMonth, setPlanMonth] = useState(new Date().getMonth() + 1);
   const [planYear, setPlanYear] = useState(new Date().getFullYear());
   const [planDescription, setPlanDescription] = useState('');
-  
+
   const [goalTitle, setGoalTitle] = useState('');
   const [goalTarget, setGoalTarget] = useState('');
-  const [goalCurrent, setGoalCurrent] = useState('');
+  const [goalCurrent, setGoalCurrent] = useState('0');
   const [goalUnit, setGoalUnit] = useState('unidade');
-  
-  const [productName, setProductName] = useState('');
-  const [productDescription, setProductDescription] = useState('');
-  const [productPrice, setProductPrice] = useState('');
-  const [productCost, setProductCost] = useState('');
-  const [productNotes, setProductNotes] = useState('');
-
-  const [saleDescription, setSaleDescription] = useState('');
-  const [saleAmount, setSaleAmount] = useState('');
-  const [saleDate, setSaleDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [saleProductId, setSaleProductId] = useState<string>('none');
 
   useEffect(() => {
-    if (user) {
-      fetchAllData();
-    }
+    if (user) fetchMonthlyPlans();
   }, [user]);
 
-  const fetchAllData = async () => {
-    setLoading(true);
-    await Promise.all([
-      fetchMonthlyPlans(),
-      fetchProducts(),
-      fetchSales(),
-      fetchImplementations(),
-    ]);
-    setLoading(false);
-  };
-
   const fetchMonthlyPlans = async () => {
+    setLoading(true);
     try {
-      const { data: plans, error } = await supabase
+      const { data: plans } = await supabase
         .from('monthly_plans')
         .select('*')
         .order('year', { ascending: false })
         .order('month', { ascending: false });
-
-      if (error) throw error;
 
       const plansWithGoals: MonthlyPlan[] = [];
       for (const plan of plans || []) {
@@ -154,93 +112,47 @@ export default function PlanningSection() {
           .from('goals')
           .select('*')
           .eq('monthly_plan_id', plan.id);
-
-        plansWithGoals.push({
-          ...plan,
-          goals: goals || [],
-        });
+        plansWithGoals.push({ ...plan, goals: goals || [] });
       }
-
       setMonthlyPlans(plansWithGoals);
+      
+      // Auto-select current month if exists
+      const currentPlan = plansWithGoals.find(
+        p => p.month === new Date().getMonth() + 1 && p.year === new Date().getFullYear()
+      );
+      if (currentPlan) setSelectedMonth(currentPlan);
     } catch (error) {
       console.error('Error fetching plans:', error);
     }
+    setLoading(false);
   };
 
-  const fetchProducts = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .order('name');
+  // Calculate year stats
+  const yearPlans = monthlyPlans.filter(p => p.year === selectedYear);
+  const allGoals = yearPlans.flatMap(p => p.goals);
+  const completedGoals = allGoals.filter(g => g.current_value >= g.target_value);
+  const totalGoals = allGoals.length;
+  const avgProgress = totalGoals > 0
+    ? allGoals.reduce((sum, g) => {
+        const p = g.target_value > 0 ? (g.current_value / g.target_value) * 100 : 0;
+        return sum + Math.min(p, 100);
+      }, 0) / totalGoals
+    : 0;
 
-      if (error) throw error;
-      setProducts(data || []);
-    } catch (error) {
-      console.error('Error fetching products:', error);
-    }
-  };
+  // Monthly progress data for chart
+  const monthlyProgressData = MONTHS.map((name, i) => {
+    const plan = yearPlans.find(p => p.month === i + 1);
+    if (!plan || plan.goals.length === 0) return { name: name.slice(0, 3), progress: 0, goals: 0 };
+    
+    const progress = plan.goals.reduce((sum, g) => {
+      const p = g.target_value > 0 ? (g.current_value / g.target_value) * 100 : 0;
+      return sum + Math.min(p, 100);
+    }, 0) / plan.goals.length;
+    
+    return { name: name.slice(0, 3), progress: Math.round(progress), goals: plan.goals.length };
+  });
 
-  const fetchSales = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('sales')
-        .select('*')
-        .order('sale_date', { ascending: false });
-
-      if (error) throw error;
-      setSales(data || []);
-    } catch (error) {
-      console.error('Error fetching sales:', error);
-    }
-  };
-
-  const fetchImplementations = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('implementations')
-        .select('*');
-
-      if (error) throw error;
-      setImplementations(data || []);
-    } catch (error) {
-      console.error('Error fetching implementations:', error);
-    }
-  };
-
-  // Calculate revenue by month
-  const getRevenueByMonth = () => {
-    const revenueData: { month: string; implementations: number; sales: number; total: number }[] = [];
-
-    for (let month = 1; month <= 12; month++) {
-      // Implementation value for the month
-      const monthImplementations = implementations.filter(impl => {
-        const createdDate = new Date(impl.created_at);
-        return createdDate.getMonth() + 1 === month && createdDate.getFullYear() === selectedYear;
-      });
-      const implTotal = monthImplementations.reduce((sum, impl) => sum + (impl.implementation_value || 0), 0);
-
-      // Sales for the month
-      const monthSales = sales.filter(sale => {
-        const saleDate = new Date(sale.sale_date);
-        return saleDate.getMonth() + 1 === month && saleDate.getFullYear() === selectedYear;
-      });
-      const salesTotal = monthSales.reduce((sum, sale) => sum + (sale.amount || 0), 0);
-
-      revenueData.push({
-        month: MONTHS[month - 1].substring(0, 3),
-        implementations: implTotal,
-        sales: salesTotal,
-        total: implTotal + salesTotal,
-      });
-    }
-
-    return revenueData;
-  };
-
-  const totalRevenue = getRevenueByMonth().reduce((sum, m) => sum + m.total, 0);
-
-  // Handlers for Monthly Plans
+  // Handlers
   const handleOpenPlanDialog = (plan?: MonthlyPlan) => {
     if (plan) {
       setEditingPlan(plan);
@@ -261,44 +173,32 @@ export default function PlanningSection() {
 
     try {
       if (editingPlan) {
-        const { error } = await supabase
+        await supabase
           .from('monthly_plans')
           .update({ description: planDescription })
           .eq('id', editingPlan.id);
-
-        if (error) throw error;
         toast.success('Planejamento atualizado!');
       } else {
-        const { error } = await supabase
-          .from('monthly_plans')
-          .insert({
-            user_id: user.id,
-            month: planMonth,
-            year: planYear,
-            description: planDescription || null,
-          });
-
-        if (error) {
-          if (error.code === '23505') {
-            toast.error('Já existe um planejamento para este mês');
-            return;
-          }
-          throw error;
+        const { error } = await supabase.from('monthly_plans').insert({
+          user_id: user.id,
+          month: planMonth,
+          year: planYear,
+          description: planDescription || null,
+        });
+        if (error?.code === '23505') {
+          toast.error('Já existe um planejamento para este mês');
+          return;
         }
         toast.success('Planejamento criado!');
       }
-
       setShowPlanDialog(false);
       fetchMonthlyPlans();
     } catch (error) {
-      console.error('Error saving plan:', error);
       toast.error('Erro ao salvar planejamento');
     }
   };
 
-  // Handlers for Goals
-  const handleOpenGoalDialog = (planId: string, goal?: Goal) => {
-    setSelectedPlanId(planId);
+  const handleOpenGoalDialog = (goal?: Goal) => {
     if (goal) {
       setEditingGoal(goal);
       setGoalTitle(goal.title);
@@ -316,169 +216,58 @@ export default function PlanningSection() {
   };
 
   const handleSaveGoal = async () => {
-    if (!selectedPlanId || !goalTitle.trim()) return;
+    if (!selectedMonth || !goalTitle.trim()) return;
 
     try {
       if (editingGoal) {
-        const { error } = await supabase
-          .from('goals')
-          .update({
-            title: goalTitle,
-            target_value: parseFloat(goalTarget) || 0,
-            current_value: parseFloat(goalCurrent) || 0,
-            unit: goalUnit,
-          })
-          .eq('id', editingGoal.id);
-
-        if (error) throw error;
+        await supabase.from('goals').update({
+          title: goalTitle,
+          target_value: parseFloat(goalTarget) || 0,
+          current_value: parseFloat(goalCurrent) || 0,
+          unit: goalUnit,
+        }).eq('id', editingGoal.id);
         toast.success('Meta atualizada!');
       } else {
-        const { error } = await supabase
-          .from('goals')
-          .insert({
-            monthly_plan_id: selectedPlanId,
-            title: goalTitle,
-            target_value: parseFloat(goalTarget) || 0,
-            current_value: parseFloat(goalCurrent) || 0,
-            unit: goalUnit,
-          });
-
-        if (error) throw error;
+        await supabase.from('goals').insert({
+          monthly_plan_id: selectedMonth.id,
+          title: goalTitle,
+          target_value: parseFloat(goalTarget) || 0,
+          current_value: parseFloat(goalCurrent) || 0,
+          unit: goalUnit,
+        });
         toast.success('Meta criada!');
       }
-
       setShowGoalDialog(false);
       fetchMonthlyPlans();
     } catch (error) {
-      console.error('Error saving goal:', error);
       toast.error('Erro ao salvar meta');
     }
   };
 
-  // Handlers for Products
-  const handleOpenProductDialog = (product?: Product) => {
-    if (product) {
-      setEditingProduct(product);
-      setProductName(product.name);
-      setProductDescription(product.description || '');
-      setProductPrice(product.price.toString());
-      setProductCost(product.cost.toString());
-      setProductNotes(product.notes || '');
-    } else {
-      setEditingProduct(null);
-      setProductName('');
-      setProductDescription('');
-      setProductPrice('');
-      setProductCost('');
-      setProductNotes('');
-    }
-    setShowProductDialog(true);
-  };
-
-  const handleSaveProduct = async () => {
-    if (!user || !productName.trim()) return;
-
-    try {
-      const productData = {
-        name: productName,
-        description: productDescription || null,
-        price: parseFloat(productPrice) || 0,
-        cost: parseFloat(productCost) || 0,
-        notes: productNotes || null,
-      };
-
-      if (editingProduct) {
-        const { error } = await supabase
-          .from('products')
-          .update(productData)
-          .eq('id', editingProduct.id);
-
-        if (error) throw error;
-        toast.success('Produto atualizado!');
-      } else {
-        const { error } = await supabase
-          .from('products')
-          .insert({ ...productData, user_id: user.id });
-
-        if (error) throw error;
-        toast.success('Produto criado!');
-      }
-
-      setShowProductDialog(false);
-      fetchProducts();
-    } catch (error) {
-      console.error('Error saving product:', error);
-      toast.error('Erro ao salvar produto');
-    }
-  };
-
-  // Handlers for Sales
-  const handleOpenSaleDialog = () => {
-    setSaleDescription('');
-    setSaleAmount('');
-    setSaleDate(format(new Date(), 'yyyy-MM-dd'));
-    setSaleProductId('none');
-    setShowSaleDialog(true);
-  };
-
-  const handleSaveSale = async () => {
-    if (!user || !saleDescription.trim()) return;
-
-    try {
-      const { error } = await supabase
-        .from('sales')
-        .insert({
-          user_id: user.id,
-          description: saleDescription,
-          amount: parseFloat(saleAmount) || 0,
-          sale_date: saleDate,
-          product_id: saleProductId === 'none' ? null : saleProductId,
-        });
-
-      if (error) throw error;
-      toast.success('Venda registrada!');
-      setShowSaleDialog(false);
-      fetchSales();
-    } catch (error) {
-      console.error('Error saving sale:', error);
-      toast.error('Erro ao registrar venda');
-    }
-  };
-
-  // Delete handler
   const handleDelete = async () => {
     if (!deleteItem) return;
 
     try {
-      let table: 'monthly_plans' | 'goals' | 'products' | 'sales' = 'monthly_plans';
-      switch (deleteItem.type) {
-        case 'plan':
-          table = 'monthly_plans';
-          break;
-        case 'goal':
-          table = 'goals';
-          break;
-        case 'product':
-          table = 'products';
-          break;
-        case 'sale':
-          table = 'sales';
-          break;
+      const table = deleteItem.type === 'plan' ? 'monthly_plans' : 'goals';
+      await supabase.from(table).delete().eq('id', deleteItem.id);
+      
+      if (deleteItem.type === 'plan' && selectedMonth?.id === deleteItem.id) {
+        setSelectedMonth(null);
       }
-
-      const { error } = await supabase
-        .from(table)
-        .delete()
-        .eq('id', deleteItem.id);
-
-      if (error) throw error;
+      
       toast.success('Item excluído!');
       setDeleteItem(null);
-      fetchAllData();
+      fetchMonthlyPlans();
     } catch (error) {
-      console.error('Error deleting:', error);
       toast.error('Erro ao excluir');
     }
+  };
+
+  const getProgressColor = (progress: number) => {
+    if (progress >= 100) return 'text-green-500';
+    if (progress >= 75) return 'text-blue-500';
+    if (progress >= 50) return 'text-yellow-500';
+    return 'text-orange-500';
   };
 
   if (loading) {
@@ -489,554 +278,408 @@ export default function PlanningSection() {
     );
   }
 
-  const revenueData = getRevenueByMonth();
-
   return (
     <div className="space-y-6">
-      <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
-        <TabsList className="grid w-full max-w-lg grid-cols-4">
-          <TabsTrigger value="metas">Metas</TabsTrigger>
-          <TabsTrigger value="produtos">Produtos</TabsTrigger>
-          <TabsTrigger value="vendas">Vendas</TabsTrigger>
-          <TabsTrigger value="faturamento">Faturamento</TabsTrigger>
-        </TabsList>
-
-        {/* Monthly Goals Tab */}
-        <TabsContent value="metas" className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-display text-foreground">Planejamentos Mensais</h2>
-              <p className="text-sm text-muted-foreground">Defina metas e acompanhe seu progresso</p>
+      {/* Year Selector & Summary */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Year Summary Card */}
+        <Card className="flex-1 bg-gradient-to-br from-primary/10 via-background to-background border-primary/20">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setSelectedYear(selectedYear - 1)}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <h2 className="text-3xl font-display font-bold">{selectedYear}</h2>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setSelectedYear(selectedYear + 1)}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+              <Button onClick={() => handleOpenPlanDialog()}>
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Mês
+              </Button>
             </div>
-            <Button onClick={() => handleOpenPlanDialog()}>
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Mês
-            </Button>
-          </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
-            <AnimatePresence>
-              {monthlyPlans.map((plan, index) => {
-                const totalProgress = plan.goals.length > 0
-                  ? plan.goals.reduce((sum, g) => {
-                      const p = g.target_value > 0 ? (g.current_value / g.target_value) * 100 : 0;
-                      return sum + Math.min(p, 100);
-                    }, 0) / plan.goals.length
-                  : 0;
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="p-4 rounded-xl bg-background/50 border border-border/50">
+                <div className="flex items-center gap-2 mb-2">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  <span className="text-sm text-muted-foreground">Meses</span>
+                </div>
+                <p className="text-2xl font-bold">{yearPlans.length}</p>
+              </div>
+              <div className="p-4 rounded-xl bg-background/50 border border-border/50">
+                <div className="flex items-center gap-2 mb-2">
+                  <Target className="h-4 w-4 text-blue-500" />
+                  <span className="text-sm text-muted-foreground">Metas</span>
+                </div>
+                <p className="text-2xl font-bold">{totalGoals}</p>
+              </div>
+              <div className="p-4 rounded-xl bg-background/50 border border-border/50">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <span className="text-sm text-muted-foreground">Concluídas</span>
+                </div>
+                <p className="text-2xl font-bold">{completedGoals.length}</p>
+              </div>
+              <div className="p-4 rounded-xl bg-background/50 border border-border/50">
+                <div className="flex items-center gap-2 mb-2">
+                  <Flame className="h-4 w-4 text-orange-500" />
+                  <span className="text-sm text-muted-foreground">Progresso</span>
+                </div>
+                <p className="text-2xl font-bold">{avgProgress.toFixed(0)}%</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-                return (
-                  <motion.div
-                    key={plan.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ delay: index * 0.1 }}
-                  >
-                    <Card className="card-hover h-full">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                          <div className="space-y-1">
-                            <CardTitle className="flex items-center gap-2 text-xl">
-                              <div className="p-2 rounded-lg bg-primary/10">
-                                <Calendar className="h-5 w-5 text-primary" />
-                              </div>
-                              {MONTHS[plan.month - 1]} {plan.year}
-                            </CardTitle>
-                            {plan.description && (
-                              <p className="text-sm text-muted-foreground max-w-md">{plan.description}</p>
-                            )}
-                          </div>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleOpenPlanDialog(plan)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setDeleteItem({ type: 'plan', id: plan.id })}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </div>
-                        
-                        {/* Overall Progress */}
-                        {plan.goals.length > 0 && (
-                          <div className="mt-4 p-3 rounded-lg bg-secondary/30">
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-sm font-medium">Progresso Geral</span>
-                              <span className="text-sm text-primary font-semibold">{totalProgress.toFixed(0)}%</span>
+        {/* Progress Chart */}
+        <Card className="lg:w-[400px]">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Progresso Mensal</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={monthlyProgressData}>
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
+                  <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                    }}
+                    formatter={(value: number) => [`${value}%`, 'Progresso']}
+                  />
+                  <Bar dataKey="progress" radius={[4, 4, 0, 0]}>
+                    {monthlyProgressData.map((entry, index) => (
+                      <Cell
+                        key={index}
+                        fill={entry.progress >= 100 ? '#10B981' : entry.progress > 0 ? '#3B82F6' : '#374151'}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Months Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+        {MONTHS.map((month, i) => {
+          const plan = yearPlans.find(p => p.month === i + 1);
+          const isSelected = selectedMonth?.id === plan?.id;
+          const progress = plan && plan.goals.length > 0
+            ? plan.goals.reduce((sum, g) => {
+                const p = g.target_value > 0 ? (g.current_value / g.target_value) * 100 : 0;
+                return sum + Math.min(p, 100);
+              }, 0) / plan.goals.length
+            : 0;
+
+          return (
+            <motion.div
+              key={month}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Card
+                className={`cursor-pointer transition-all h-full ${
+                  isSelected
+                    ? 'ring-2 ring-primary border-primary bg-primary/5'
+                    : plan
+                    ? 'hover:border-primary/50'
+                    : 'border-dashed opacity-60 hover:opacity-100'
+                }`}
+                onClick={() => plan && setSelectedMonth(plan)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="font-semibold">{month.slice(0, 3)}</span>
+                    {plan && (
+                      <Badge variant={progress >= 100 ? 'default' : 'secondary'} className="text-xs">
+                        {plan.goals.length} metas
+                      </Badge>
+                    )}
+                  </div>
+                  {plan ? (
+                    <div className="space-y-2">
+                      <Progress value={progress} className="h-2" />
+                      <p className={`text-sm font-medium ${getProgressColor(progress)}`}>
+                        {progress.toFixed(0)}%
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Não criado</p>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {/* Selected Month Detail */}
+      <AnimatePresence mode="wait">
+        {selectedMonth && (
+          <motion.div
+            key={selectedMonth.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+          >
+            <Card className="border-2 border-primary/20">
+              <CardHeader className="bg-gradient-to-r from-primary/10 to-transparent">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <CardTitle className="text-2xl flex items-center gap-3">
+                      <div className="p-2 rounded-xl bg-primary/20">
+                        <Calendar className="h-6 w-6 text-primary" />
+                      </div>
+                      {MONTHS[selectedMonth.month - 1]} {selectedMonth.year}
+                    </CardTitle>
+                    {selectedMonth.description && (
+                      <p className="text-muted-foreground max-w-2xl">{selectedMonth.description}</p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => handleOpenPlanDialog(selectedMonth)}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Editar
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setDeleteItem({ type: 'plan', id: selectedMonth.id })}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-6 space-y-6">
+                {/* Goals Summary */}
+                {selectedMonth.goals.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {(() => {
+                      const completed = selectedMonth.goals.filter(g => g.current_value >= g.target_value).length;
+                      const inProgress = selectedMonth.goals.filter(g => g.current_value > 0 && g.current_value < g.target_value).length;
+                      const notStarted = selectedMonth.goals.filter(g => g.current_value === 0).length;
+                      
+                      return (
+                        <>
+                          <div className="flex items-center gap-4 p-4 rounded-xl bg-green-500/10 border border-green-500/20">
+                            <CheckCircle2 className="h-8 w-8 text-green-500" />
+                            <div>
+                              <p className="text-2xl font-bold text-green-500">{completed}</p>
+                              <p className="text-sm text-muted-foreground">Concluídas</p>
                             </div>
-                            <Progress value={totalProgress} className="h-3" />
                           </div>
-                        )}
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        {/* Goals */}
-                        <div className="space-y-3">
-                          {plan.goals.map(goal => {
-                            const progress = goal.target_value > 0
-                              ? Math.min((goal.current_value / goal.target_value) * 100, 100)
-                              : 0;
+                          <div className="flex items-center gap-4 p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                            <TrendingUp className="h-8 w-8 text-blue-500" />
+                            <div>
+                              <p className="text-2xl font-bold text-blue-500">{inProgress}</p>
+                              <p className="text-sm text-muted-foreground">Em Progresso</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4 p-4 rounded-xl bg-gray-500/10 border border-gray-500/20">
+                            <Circle className="h-8 w-8 text-gray-500" />
+                            <div>
+                              <p className="text-2xl font-bold text-gray-500">{notStarted}</p>
+                              <p className="text-sm text-muted-foreground">Não Iniciadas</p>
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
 
-                            return (
-                              <div key={goal.id} className="p-4 rounded-xl bg-secondary/40 border border-border/30 space-y-3">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <TrendingUp className="h-4 w-4 text-primary" />
-                                    <span className="font-medium text-base">{goal.title}</span>
+                {/* Goals List */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                      <Target className="h-5 w-5 text-primary" />
+                      Metas do Mês
+                    </h3>
+                    <Button onClick={() => handleOpenGoalDialog()}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Nova Meta
+                    </Button>
+                  </div>
+
+                  {selectedMonth.goals.length > 0 ? (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {selectedMonth.goals.map((goal, index) => {
+                        const progress = goal.target_value > 0
+                          ? Math.min((goal.current_value / goal.target_value) * 100, 100)
+                          : 0;
+                        const isCompleted = progress >= 100;
+
+                        return (
+                          <motion.div
+                            key={goal.id}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.1 }}
+                          >
+                            <Card className={`${isCompleted ? 'border-green-500/50 bg-green-500/5' : ''}`}>
+                              <CardContent className="p-5">
+                                <div className="flex items-start justify-between mb-4">
+                                  <div className="flex items-center gap-3">
+                                    {isCompleted ? (
+                                      <div className="p-2 rounded-lg bg-green-500/20">
+                                        <Award className="h-5 w-5 text-green-500" />
+                                      </div>
+                                    ) : (
+                                      <div className="p-2 rounded-lg bg-primary/10">
+                                        <Target className="h-5 w-5 text-primary" />
+                                      </div>
+                                    )}
+                                    <div>
+                                      <h4 className="font-semibold">{goal.title}</h4>
+                                      <p className="text-sm text-muted-foreground">
+                                        {goal.current_value} / {goal.target_value} {goal.unit}
+                                      </p>
+                                    </div>
                                   </div>
-                                  <div className="flex items-center gap-1">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => handleOpenGoalDialog(plan.id, goal)}
-                                    >
+                                  <div className="flex gap-1">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenGoalDialog(goal)}>
                                       <Edit className="h-4 w-4" />
                                     </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => setDeleteItem({ type: 'goal', id: goal.id })}
-                                    >
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteItem({ type: 'goal', id: goal.id })}>
                                       <Trash2 className="h-4 w-4 text-destructive" />
                                     </Button>
                                   </div>
                                 </div>
                                 
                                 <div className="space-y-2">
-                                  <Progress value={progress} className="h-3" />
-                                  <div className="flex items-center justify-between text-sm">
-                                    <span className="text-muted-foreground">
-                                      <span className="font-semibold text-foreground">{goal.current_value}</span> / {goal.target_value} {goal.unit}
-                                    </span>
-                                    <span className={`font-medium ${progress >= 100 ? 'text-green-500' : progress >= 50 ? 'text-yellow-500' : 'text-orange-500'}`}>
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">Progresso</span>
+                                    <span className={`font-semibold ${getProgressColor(progress)}`}>
                                       {progress.toFixed(0)}%
                                     </span>
                                   </div>
+                                  <Progress value={progress} className="h-3" />
                                 </div>
-                              </div>
-                            );
-                          })}
-
-                          {plan.goals.length === 0 && (
-                            <div className="text-center py-6 text-muted-foreground bg-secondary/20 rounded-lg">
-                              <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                              <p className="text-sm">Nenhuma meta definida</p>
-                            </div>
-                          )}
-                        </div>
-
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full"
-                          onClick={() => handleOpenGoalDialog(plan.id)}
-                        >
+                              </CardContent>
+                            </Card>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <Card className="border-dashed">
+                      <CardContent className="flex flex-col items-center justify-center py-12">
+                        <Target className="h-12 w-12 text-muted-foreground mb-4" />
+                        <p className="text-muted-foreground mb-4">Nenhuma meta definida para este mês</p>
+                        <Button onClick={() => handleOpenGoalDialog()}>
                           <Plus className="h-4 w-4 mr-2" />
-                          Adicionar Meta
+                          Criar primeira meta
                         </Button>
                       </CardContent>
                     </Card>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-
-            {monthlyPlans.length === 0 && (
-              <Card className="border-dashed col-span-full">
-                <CardContent className="flex flex-col items-center justify-center py-16">
-                  <div className="p-4 rounded-full bg-primary/10 mb-4">
-                    <TrendingUp className="h-12 w-12 text-primary" />
-                  </div>
-                  <h3 className="text-lg font-medium mb-2">Nenhum planejamento criado</h3>
-                  <p className="text-muted-foreground text-center mb-4 max-w-sm">
-                    Crie seu primeiro planejamento mensal para definir metas e acompanhar seu progresso.
-                  </p>
-                  <Button onClick={() => handleOpenPlanDialog()}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Criar primeiro planejamento
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </TabsContent>
-
-        {/* Products Tab */}
-        <TabsContent value="produtos" className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-display text-foreground">Produtos</h2>
-              <p className="text-sm text-muted-foreground">Gerencie seus produtos e margens</p>
-            </div>
-            <Button onClick={() => handleOpenProductDialog()}>
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Produto
-            </Button>
-          </div>
-
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            <AnimatePresence>
-              {products.map((product, index) => (
-                <motion.div
-                  key={product.id}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <Card className="card-hover h-full">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-primary/10">
-                            <Package className="h-5 w-5 text-primary" />
-                          </div>
-                          <CardTitle className="text-lg">{product.name}</CardTitle>
-                        </div>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => handleOpenProductDialog(product)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => setDeleteItem({ type: 'product', id: product.id })}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {product.description && (
-                        <p className="text-sm text-muted-foreground">{product.description}</p>
-                      )}
-                      
-                      <div className="grid grid-cols-2 gap-4 p-4 rounded-lg bg-secondary/30">
-                        <div className="space-y-1">
-                          <span className="text-xs text-muted-foreground uppercase tracking-wide">Preço</span>
-                          <p className="text-lg font-semibold text-foreground">
-                            R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </p>
-                        </div>
-                        <div className="space-y-1">
-                          <span className="text-xs text-muted-foreground uppercase tracking-wide">Custo</span>
-                          <p className="text-lg font-medium text-muted-foreground">
-                            R$ {product.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between p-4 rounded-lg border border-border/50">
-                        <span className="text-sm font-medium">Margem de Lucro</span>
-                        <span className={`text-xl font-bold ${product.profit_margin >= 0 ? 'text-green-500' : 'text-destructive'}`}>
-                          {product.profit_margin.toFixed(1)}%
-                        </span>
-                      </div>
-                      
-                      {product.notes && (
-                        <p className="text-xs text-muted-foreground italic pt-2 border-t border-border/30">
-                          📝 {product.notes}
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-
-            {products.length === 0 && (
-              <Card className="border-dashed col-span-full">
-                <CardContent className="flex flex-col items-center justify-center py-16">
-                  <div className="p-4 rounded-full bg-primary/10 mb-4">
-                    <Package className="h-12 w-12 text-primary" />
-                  </div>
-                  <h3 className="text-lg font-medium mb-2">Nenhum produto cadastrado</h3>
-                  <p className="text-muted-foreground text-center mb-4 max-w-sm">
-                    Cadastre seus produtos para acompanhar preços, custos e margens de lucro.
-                  </p>
-                  <Button onClick={() => handleOpenProductDialog()}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Cadastrar primeiro produto
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </TabsContent>
-
-        {/* Sales Tab */}
-        <TabsContent value="vendas" className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-display text-foreground">Vendas</h2>
-              <p className="text-sm text-muted-foreground">Registre suas vendas mensais</p>
-            </div>
-            <Button onClick={handleOpenSaleDialog}>
-              <Plus className="h-4 w-4 mr-2" />
-              Nova Venda
-            </Button>
-          </div>
-
-          <div className="space-y-3">
-            <AnimatePresence>
-              {sales.map((sale, index) => {
-                const product = products.find(p => p.id === sale.product_id);
-                return (
-                  <motion.div
-                    key={sale.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                    transition={{ delay: index * 0.05 }}
-                  >
-                    <Card className="card-hover">
-                      <CardContent className="py-4 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="h-10 w-10 rounded-full bg-success/10 flex items-center justify-center">
-                            <DollarSign className="h-5 w-5 text-success" />
-                          </div>
-                          <div>
-                            <p className="font-medium">{sale.description}</p>
-                            <div className="text-sm text-muted-foreground">
-                              {format(new Date(sale.sale_date), "dd 'de' MMMM, yyyy", { locale: ptBR })}
-                              {product && <span className="ml-2">• {product.name}</span>}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <span className="text-lg font-semibold text-success">
-                            R$ {sale.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </span>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDeleteItem({ type: 'sale', id: sale.id })}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-
-            {sales.length === 0 && (
-              <Card className="border-dashed">
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <DollarSign className="h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">Nenhuma venda registrada</p>
-                  <Button className="mt-4" onClick={handleOpenSaleDialog}>
-                    Registrar primeira venda
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </TabsContent>
-
-        {/* Revenue Tab */}
-        <TabsContent value="faturamento" className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-display text-foreground">Faturamento Geral</h2>
-              <p className="text-sm text-muted-foreground">
-                Visão geral das implementações + vendas
-              </p>
-            </div>
-            <Select
-              value={selectedYear.toString()}
-              onValueChange={(v) => setSelectedYear(parseInt(v))}
-            >
-              <SelectTrigger className="w-[120px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[2024, 2025, 2026, 2027].map(year => (
-                  <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Total Revenue Card */}
-          <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
-            <CardContent className="py-6">
-              <div className="flex items-center gap-4">
-                <div className="h-14 w-14 rounded-full bg-primary/20 flex items-center justify-center">
-                  <TrendingUp className="h-7 w-7 text-primary" />
+                  )}
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Faturamento Total ({selectedYear})</p>
-                  <p className="text-3xl font-display font-bold">
-                    R$ {totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-          {/* Revenue Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Faturamento por Mês</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={revenueData}>
-                    <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                    <Tooltip
-                      formatter={(value: number) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                      }}
-                    />
-                    <Bar dataKey="total" radius={[4, 4, 0, 0]}>
-                      {revenueData.map((_, index) => (
-                        <Cell key={index} fill="hsl(var(--primary))" />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Monthly Breakdown */}
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {revenueData.filter(m => m.total > 0).map((month, index) => (
-              <Card key={index} className="card-hover">
-                <CardContent className="py-4">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">{MONTHS[index]}</span>
-                    <span className="text-lg font-semibold text-primary">
-                      R$ {month.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                  <div className="text-sm text-muted-foreground mt-1 space-x-4">
-                    <span>Impl: R$ {month.implementations.toLocaleString('pt-BR')}</span>
-                    <span>Vendas: R$ {month.sales.toLocaleString('pt-BR')}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-      </Tabs>
+      {/* Empty State */}
+      {!selectedMonth && yearPlans.length === 0 && (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <div className="p-4 rounded-full bg-primary/10 mb-4">
+              <Calendar className="h-12 w-12 text-primary" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">Comece seu Planejamento</h3>
+            <p className="text-muted-foreground text-center mb-6 max-w-md">
+              Crie planejamentos mensais para definir metas, acompanhar progresso e alcançar seus objetivos.
+            </p>
+            <Button size="lg" onClick={() => handleOpenPlanDialog()}>
+              <Plus className="h-5 w-5 mr-2" />
+              Criar Primeiro Planejamento
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Plan Dialog */}
       <Dialog open={showPlanDialog} onOpenChange={setShowPlanDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-md bg-card">
           <DialogHeader>
-            <DialogTitle>
-              {editingPlan ? 'Editar Planejamento' : 'Novo Planejamento Mensal'}
-            </DialogTitle>
+            <DialogTitle>{editingPlan ? 'Editar Planejamento' : 'Novo Planejamento'}</DialogTitle>
           </DialogHeader>
-
-          <div className="space-y-4 py-4">
+          <div className="space-y-4">
             {!editingPlan && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Mês</label>
-                  <Select
-                    value={planMonth.toString()}
-                    onValueChange={(v) => setPlanMonth(parseInt(v))}
-                  >
+                  <Label>Mês</Label>
+                  <Select value={planMonth.toString()} onValueChange={(v) => setPlanMonth(parseInt(v))}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                      {MONTHS.map((month, index) => (
-                        <SelectItem key={index} value={(index + 1).toString()}>
-                          {month}
-                        </SelectItem>
+                    <SelectContent className="bg-card border-border">
+                      {MONTHS.map((m, i) => (
+                        <SelectItem key={i} value={(i + 1).toString()}>{m}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Ano</label>
-                  <Select
-                    value={planYear.toString()}
-                    onValueChange={(v) => setPlanYear(parseInt(v))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[2024, 2025, 2026, 2027].map(year => (
-                        <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label>Ano</Label>
+                  <Input
+                    type="number"
+                    value={planYear}
+                    onChange={(e) => setPlanYear(parseInt(e.target.value))}
+                  />
                 </div>
               </div>
             )}
-
             <div className="space-y-2">
-              <label className="text-sm font-medium">Descrição / Planejamento</label>
+              <Label>Descrição / Foco do Mês</Label>
               <Textarea
                 value={planDescription}
                 onChange={(e) => setPlanDescription(e.target.value)}
-                placeholder="Descreva o planejamento para este mês..."
-                rows={4}
+                placeholder="Ex: Foco em prospecção ativa e conversão de leads..."
+                rows={3}
               />
             </div>
           </div>
-
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPlanDialog(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSavePlan}>
-              {editingPlan ? 'Salvar' : 'Criar'}
-            </Button>
+            <Button variant="outline" onClick={() => setShowPlanDialog(false)}>Cancelar</Button>
+            <Button onClick={handleSavePlan}>Salvar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Goal Dialog */}
       <Dialog open={showGoalDialog} onOpenChange={setShowGoalDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-md bg-card">
           <DialogHeader>
-            <DialogTitle>
-              {editingGoal ? 'Editar Meta' : 'Nova Meta'}
-            </DialogTitle>
+            <DialogTitle>{editingGoal ? 'Editar Meta' : 'Nova Meta'}</DialogTitle>
           </DialogHeader>
-
-          <div className="space-y-4 py-4">
+          <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Título da Meta</label>
+              <Label>Título da Meta</Label>
               <Input
                 value={goalTitle}
                 onChange={(e) => setGoalTitle(e.target.value)}
-                placeholder="Ex: Reuniões de vendas"
+                placeholder="Ex: Fechar 10 vendas, Prospectar 100 leads..."
               />
             </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Meta</label>
+                <Label>Valor Alvo</Label>
                 <Input
                   type="number"
                   value={goalTarget}
@@ -1045,190 +688,44 @@ export default function PlanningSection() {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Atual</label>
+                <Label>Valor Atual</Label>
                 <Input
                   type="number"
                   value={goalCurrent}
                   onChange={(e) => setGoalCurrent(e.target.value)}
-                  placeholder="5"
+                  placeholder="0"
                 />
               </div>
             </div>
-
             <div className="space-y-2">
-              <label className="text-sm font-medium">Unidade</label>
+              <Label>Unidade</Label>
               <Input
                 value={goalUnit}
                 onChange={(e) => setGoalUnit(e.target.value)}
-                placeholder="reuniões, vendas, R$..."
+                placeholder="unidades, vendas, leads..."
               />
             </div>
           </div>
-
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowGoalDialog(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSaveGoal} disabled={!goalTitle.trim()}>
-              {editingGoal ? 'Salvar' : 'Criar'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Product Dialog */}
-      <Dialog open={showProductDialog} onOpenChange={setShowProductDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {editingProduct ? 'Editar Produto' : 'Novo Produto'}
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Nome</label>
-              <Input
-                value={productName}
-                onChange={(e) => setProductName(e.target.value)}
-                placeholder="Nome do produto"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Descrição</label>
-              <Textarea
-                value={productDescription}
-                onChange={(e) => setProductDescription(e.target.value)}
-                placeholder="Descrição do produto (opcional)"
-                rows={2}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Preço (R$)</label>
-                <Input
-                  type="number"
-                  value={productPrice}
-                  onChange={(e) => setProductPrice(e.target.value)}
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Custo (R$)</label>
-                <Input
-                  type="number"
-                  value={productCost}
-                  onChange={(e) => setProductCost(e.target.value)}
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Observações</label>
-              <Textarea
-                value={productNotes}
-                onChange={(e) => setProductNotes(e.target.value)}
-                placeholder="Outras informações importantes (opcional)"
-                rows={2}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowProductDialog(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSaveProduct} disabled={!productName.trim()}>
-              {editingProduct ? 'Salvar' : 'Criar'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Sale Dialog */}
-      <Dialog open={showSaleDialog} onOpenChange={setShowSaleDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Registrar Venda</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Descrição</label>
-              <Input
-                value={saleDescription}
-                onChange={(e) => setSaleDescription(e.target.value)}
-                placeholder="Descrição da venda"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Valor (R$)</label>
-                <Input
-                  type="number"
-                  value={saleAmount}
-                  onChange={(e) => setSaleAmount(e.target.value)}
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Data</label>
-                <Input
-                  type="date"
-                  value={saleDate}
-                  onChange={(e) => setSaleDate(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Produto (opcional)</label>
-              <Select
-                value={saleProductId}
-                onValueChange={setSaleProductId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um produto" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nenhum</SelectItem>
-                  {products.map(product => (
-                    <SelectItem key={product.id} value={product.id}>
-                      {product.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSaleDialog(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSaveSale} disabled={!saleDescription.trim()}>
-              Registrar
-            </Button>
+            <Button variant="outline" onClick={() => setShowGoalDialog(false)}>Cancelar</Button>
+            <Button onClick={handleSaveGoal}>Salvar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteItem} onOpenChange={() => setDeleteItem(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-card">
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja deletar? Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir? Esta ação não pode ser desfeita.
+              {deleteItem?.type === 'plan' && ' Todas as metas deste mês serão excluídas também.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
