@@ -37,6 +37,16 @@ import {
   BarChart3, Users, Calendar, DollarSign, CheckCircle, XCircle
 } from 'lucide-react';
 import { isBefore, parseISO, startOfMonth, isAfter } from 'date-fns';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  ResponsiveContainer,
+  Cell,
+  ReferenceLine,
+  Tooltip,
+} from 'recharts';
 
 // Available metric sources (excluding traffic campaigns)
 const METRIC_SOURCES = [
@@ -347,52 +357,81 @@ export default function MetricasComerciais() {
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      {/* Current vs Target */}
-                      <div className="flex items-end justify-between">
-                        <div>
-                          <p className="text-sm text-muted-foreground">Atual</p>
-                          <p className="text-3xl font-bold">{formatValue(currentValue, source?.unit || '')}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm text-muted-foreground">Meta</p>
-                          <p className="text-xl font-semibold text-muted-foreground">{formatValue(target, source?.unit || '')}</p>
-                        </div>
+                      {/* Chart */}
+                      <div className="h-32">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={[
+                              { name: 'Atual', value: currentValue, fill: isAchieved ? '#22c55e' : '#f97316' },
+                              { name: 'Meta', value: target, fill: 'hsl(var(--muted))' },
+                            ]}
+                            layout="vertical"
+                            margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
+                          >
+                            <XAxis type="number" hide domain={[0, Math.max(target, currentValue) * 1.1]} />
+                            <YAxis type="category" dataKey="name" hide />
+                            <Tooltip
+                              content={({ active, payload }) => {
+                                if (active && payload && payload.length) {
+                                  return (
+                                    <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-lg">
+                                      <p className="text-sm font-medium">
+                                        {payload[0].payload.name}: {formatValue(payload[0].value as number, source?.unit || '')}
+                                      </p>
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              }}
+                            />
+                            <Bar dataKey="value" radius={[4, 4, 4, 4]} barSize={24}>
+                              {[
+                                { name: 'Atual', value: currentValue, fill: isAchieved ? '#22c55e' : '#f97316' },
+                                { name: 'Meta', value: target, fill: 'hsl(var(--muted))' },
+                              ].map((entry, idx) => (
+                                <Cell key={`cell-${idx}`} fill={entry.fill} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
                       </div>
 
-                      {/* Progress Bar */}
-                      <div className="space-y-2">
-                        <Progress value={Math.min(percentage, 100)} className="h-2" />
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">{percentage.toFixed(0)}% da meta</span>
-                          <div className={`flex items-center gap-1 ${isAchieved ? 'text-green-500' : 'text-orange-500'}`}>
-                            {isAchieved ? (
-                              <>
-                                <TrendingUp className="h-4 w-4" />
-                                <span>+{formatValue(Math.abs(diff), source?.unit || '')}</span>
-                              </>
-                            ) : (
-                              <>
-                                <TrendingDown className="h-4 w-4" />
-                                <span>-{formatValue(Math.abs(diff), source?.unit || '')}</span>
-                              </>
-                            )}
+                      {/* Current vs Target Values */}
+                      <div className="flex items-center justify-between pt-2 border-t border-border">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-3 h-3 rounded-full ${isAchieved ? 'bg-green-500' : 'bg-orange-500'}`} />
+                          <div>
+                            <p className="text-xs text-muted-foreground">Atual</p>
+                            <p className="text-lg font-bold">{formatValue(currentValue, source?.unit || '')}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-muted" />
+                          <div className="text-right">
+                            <p className="text-xs text-muted-foreground">Meta</p>
+                            <p className="text-lg font-semibold text-muted-foreground">{formatValue(target, source?.unit || '')}</p>
                           </div>
                         </div>
                       </div>
 
-                      {/* Status Badge */}
-                      <div className={`flex items-center gap-2 p-2 rounded-lg ${isAchieved ? 'bg-green-500/10 text-green-500' : 'bg-orange-500/10 text-orange-500'}`}>
-                        {isAchieved ? (
-                          <>
-                            <CheckCircle className="h-4 w-4" />
-                            <span className="text-sm font-medium">Meta atingida!</span>
-                          </>
-                        ) : (
-                          <>
-                            <Target className="h-4 w-4" />
-                            <span className="text-sm font-medium">Em progresso</span>
-                          </>
-                        )}
+                      {/* Progress indicator */}
+                      <div className="flex items-center justify-between text-sm">
+                        <span className={`font-medium ${isAchieved ? 'text-green-500' : 'text-orange-500'}`}>
+                          {percentage.toFixed(0)}% da meta
+                        </span>
+                        <div className={`flex items-center gap-1 ${isAchieved ? 'text-green-500' : 'text-orange-500'}`}>
+                          {isAchieved ? (
+                            <>
+                              <CheckCircle className="h-4 w-4" />
+                              <span className="font-medium">+{formatValue(Math.abs(diff), source?.unit || '')}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Target className="h-4 w-4" />
+                              <span className="font-medium">Faltam {formatValue(Math.abs(diff), source?.unit || '')}</span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
