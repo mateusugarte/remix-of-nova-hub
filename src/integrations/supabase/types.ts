@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_campaigns: {
+        Row: {
+          budget: number | null
+          created_at: string | null
+          end_date: string | null
+          id: string
+          name: string
+          notes: string | null
+          platform: string
+          start_date: string | null
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          budget?: number | null
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          platform?: string
+          start_date?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          budget?: number | null
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          platform?: string
+          start_date?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       bancos: {
         Row: {
           icone: string | null
@@ -31,6 +73,71 @@ export type Database = {
           nome?: string
         }
         Relationships: []
+      }
+      campaign_metric_definitions: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          id: string
+          name: string
+          unit: string | null
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          id?: string
+          name: string
+          unit?: string | null
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          unit?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      campaign_metrics: {
+        Row: {
+          campaign_id: string
+          created_at: string | null
+          id: string
+          metric_date: string
+          metrics: Json
+          notes: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string | null
+          id?: string
+          metric_date: string
+          metrics?: Json
+          notes?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string | null
+          id?: string
+          metric_date?: string
+          metrics?: Json
+          notes?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_metrics_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "ad_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       content_ideas: {
         Row: {
@@ -414,6 +521,7 @@ export type Database = {
       }
       inbound_leads: {
         Row: {
+          channel_id: string | null
           created_at: string | null
           custom_fields: Json | null
           email: string | null
@@ -436,6 +544,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          channel_id?: string | null
           created_at?: string | null
           custom_fields?: Json | null
           email?: string | null
@@ -458,6 +567,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          channel_id?: string | null
           created_at?: string | null
           custom_fields?: Json | null
           email?: string | null
@@ -481,6 +591,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "inbound_leads_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "lead_channels"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "inbound_leads_template_id_fkey"
             columns: ["template_id"]
             isOneToOne: false
@@ -488,6 +605,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      lead_channels: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       lead_templates: {
         Row: {
