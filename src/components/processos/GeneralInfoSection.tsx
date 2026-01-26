@@ -144,34 +144,34 @@ export default function GeneralInfoSection() {
 
     const price = parseFloat(productPrice) || 0;
     const cost = parseFloat(productCost) || 0;
-    const margin = productMargin ? parseFloat(productMargin) : null;
 
     try {
       if (editingProduct) {
-        await supabase.from('products').update({
+        const { error } = await supabase.from('products').update({
           name: productName,
           description: productDescription || null,
           price,
           cost,
-          profit_margin: margin,
           notes: productNotes || null,
         }).eq('id', editingProduct.id);
+        if (error) throw error;
         toast.success('Produto atualizado!');
       } else {
-        await supabase.from('products').insert({
+        const { error } = await supabase.from('products').insert({
           user_id: user.id,
           name: productName,
           description: productDescription || null,
           price,
           cost,
-          profit_margin: margin,
           notes: productNotes || null,
         });
+        if (error) throw error;
         toast.success('Produto criado!');
       }
       setShowProductDialog(false);
       fetchProducts();
     } catch (error) {
+      console.error('Error saving product:', error);
       toast.error('Erro ao salvar produto');
     }
   };
