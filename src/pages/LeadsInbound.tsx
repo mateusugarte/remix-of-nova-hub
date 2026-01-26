@@ -31,6 +31,7 @@ interface InboundLead {
   lead_score: number | null;
   template_id: string | null;
   custom_fields: Record<string, any> | null;
+  no_show: boolean | null;
   channel_id: string | null;
 }
 
@@ -64,6 +65,8 @@ export default function LeadsInbound() {
     nurturing: 0,
     outOfProfile: 0,
     conversionRate: 0,
+    schedulingRate: 0,
+    noShowRate: 0,
   });
 
   useEffect(() => {
@@ -98,8 +101,16 @@ export default function LeadsInbound() {
     const outOfProfile = mappedData.filter((l) => (l.lead_score || 0) < 40).length;
     const sold = mappedData.filter((l) => l.status === 'sold').length;
     const conversionRate = total > 0 ? Math.round((sold / total) * 100) : 0;
+    
+    // Calculate scheduling rate (leads that had a meeting scheduled)
+    const scheduledLeads = mappedData.filter((l) => l.meeting_date).length;
+    const schedulingRate = total > 0 ? Math.round((scheduledLeads / total) * 100) : 0;
+    
+    // Calculate no-show rate (leads that were no-show from scheduled meetings)
+    const noShowLeads = mappedData.filter((l) => l.no_show).length;
+    const noShowRate = scheduledLeads > 0 ? Math.round((noShowLeads / scheduledLeads) * 100) : 0;
 
-    setStats({ total, hot, good, nurturing, outOfProfile, conversionRate });
+    setStats({ total, hot, good, nurturing, outOfProfile, conversionRate, schedulingRate, noShowRate });
   };
 
   const fetchChannels = async () => {
@@ -199,7 +210,7 @@ export default function LeadsInbound() {
       </div>
 
       {/* Metrics by Score */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <MetricCard title="Total" value={stats.total} icon={<Users className="w-5 h-5" />} />
         <MetricCard 
           title="🟢 Quente" 
@@ -221,9 +232,24 @@ export default function LeadsInbound() {
           value={stats.outOfProfile} 
           subtitle="0-39 pts"
         />
+      </div>
+
+      {/* Funnel Metrics */}
+      <div className="grid grid-cols-3 gap-4">
         <MetricCard 
-          title="Conversão" 
+          title="📅 Taxa de Agendamentos" 
+          value={`${stats.schedulingRate}%`} 
+          subtitle="Leads que agendaram reunião"
+        />
+        <MetricCard 
+          title="❌ Taxa de No-Show" 
+          value={`${stats.noShowRate}%`} 
+          subtitle="Não compareceram"
+        />
+        <MetricCard 
+          title="✅ Taxa de Conversão" 
           value={`${stats.conversionRate}%`} 
+          subtitle="Leads vendidos"
         />
       </div>
 

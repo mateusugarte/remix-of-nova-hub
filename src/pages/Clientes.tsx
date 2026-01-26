@@ -66,6 +66,19 @@ interface ClientPayment {
   notes: string | null;
 }
 
+interface InboundLead {
+  id: string;
+  phone_number: string | null;
+  instagram_link: string | null;
+  email: string | null;
+  nome_lead: string | null;
+  nome_dono: string | null;
+  faturamento: string | null;
+  nicho: string | null;
+  principal_dor: string | null;
+  notes: string | null;
+}
+
 interface Client {
   id: string;
   name: string;
@@ -90,6 +103,8 @@ export default function Clientes() {
   const [clients, setClients] = useState<Client[]>([]);
   const [phases, setPhases] = useState<ProcessTag[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [availableLeads, setAvailableLeads] = useState<InboundLead[]>([]);
+  const [selectedLeadId, setSelectedLeadId] = useState('');
 
   // Dialog states
   const [showClientDialog, setShowClientDialog] = useState(false);
@@ -125,7 +140,7 @@ export default function Clientes() {
 
   const fetchData = async () => {
     setLoading(true);
-    await Promise.all([fetchClients(), fetchPhases(), fetchProducts()]);
+    await Promise.all([fetchClients(), fetchPhases(), fetchProducts(), fetchLeads()]);
     setLoading(false);
   };
 
@@ -212,6 +227,21 @@ export default function Clientes() {
     }
   };
 
+  const fetchLeads = async () => {
+    if (!user) return;
+    try {
+      // Get sold leads that could become clients
+      const { data } = await supabase
+        .from('inbound_leads')
+        .select('id, phone_number, instagram_link, email, nome_lead, nome_dono, faturamento, nicho, principal_dor, notes')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      setAvailableLeads(data || []);
+    } catch (error) {
+      console.error('Error fetching leads:', error);
+    }
+  };
+
   // Dashboard metrics
   const totalClients = clients.length;
   const totalMRR = clients.reduce((sum, c) => sum + (c.recurrence_value || 0), 0);
@@ -233,6 +263,7 @@ export default function Clientes() {
 
   // Client handlers
   const handleOpenClientDialog = (client?: Client) => {
+    setSelectedLeadId('');
     if (client) {
       setEditingClient(client);
       setClientName(client.name);
@@ -259,6 +290,18 @@ export default function Clientes() {
       setClientStartDate('');
     }
     setShowClientDialog(true);
+  };
+
+  const handleSelectLead = (leadId: string) => {
+    setSelectedLeadId(leadId);
+    const lead = availableLeads.find(l => l.id === leadId);
+    if (lead) {
+      setClientName(lead.nome_lead || lead.nome_dono || '');
+      setClientPhone(lead.phone_number || '');
+      setClientEmail(lead.email || '');
+      setClientInstagram(lead.instagram_link || '');
+      setClientNotes(lead.notes || `Nicho: ${lead.nicho || 'N/A'}\nFaturamento: ${lead.faturamento || 'N/A'}\nPrincipal Dor: ${lead.principal_dor || 'N/A'}`);
+    }
   };
 
   const handleSaveClient = async () => {
@@ -748,6 +791,34 @@ export default function Clientes() {
             <DialogTitle>{editingClient ? 'Editar Cliente' : 'Novo Cliente'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Lead Selector - only show when creating new client */}
+            {!editingClient && availableLeads.length > 0 && (
+              <div className="p-4 rounded-lg bg-primary/10 border border-primary/20 space-y-2">
+                <Label className="flex items-center gap-2 font-semibold">
+                  <Users className="w-4 h-4" />
+                  Importar de Lead Existente
+                </Label>
+                <Select value={selectedLeadId || '_none'} onValueChange={(v) => handleSelectLead(v === '_none' ? '' : v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um lead para preencher automaticamente" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border max-h-[200px]">
+                    <SelectItem value="_none">Nenhum (preencher manualmente)</SelectItem>
+                    {availableLeads.map(lead => (
+                      <SelectItem key={lead.id} value={lead.id}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{lead.nome_lead || lead.nome_dono || 'Sem nome'}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {lead.phone_number || lead.email || lead.instagram_link || 'Sem contato'}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label>Nome *</Label>
               <Input value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Nome do cliente" />
