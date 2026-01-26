@@ -17,6 +17,7 @@ import {
   Target,
   TrendingUp,
   Megaphone,
+  BarChart3,
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -33,6 +34,7 @@ const navigation = [
   { name: 'Leads Inbound', href: '/leads-inbound', icon: TrendingUp },
   { name: 'Tráfego Pago', href: '/trafego-pago', icon: Megaphone },
   { name: 'Clientes', href: '/clientes', icon: UserCheck },
+  { name: 'Métricas Comerciais', href: '/metricas-comerciais', icon: BarChart3 },
   { name: 'Implementações', href: '/implementacoes', icon: Package },
   { name: 'Processos', href: '/processos', icon: Target },
   { name: 'Pensamentos', href: '/pensamentos', icon: Brain },

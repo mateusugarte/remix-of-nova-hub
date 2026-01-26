@@ -290,6 +290,36 @@ export type Database = {
           },
         ]
       }
+      commercial_metrics: {
+        Row: {
+          comparison_source: string
+          created_at: string
+          id: string
+          name: string
+          target_value: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          comparison_source: string
+          created_at?: string
+          id?: string
+          name: string
+          target_value?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          comparison_source?: string
+          created_at?: string
+          id?: string
+          name?: string
+          target_value?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       content_ideas: {
         Row: {
           content_type: string
