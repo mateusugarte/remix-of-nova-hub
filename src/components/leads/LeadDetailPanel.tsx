@@ -270,8 +270,8 @@ export default function LeadDetailPanel({
               Canal de Origem
             </Label>
             <Select
-              value={formData.channel_id}
-              onValueChange={(value) => setFormData({ ...formData, channel_id: value })}
+              value={formData.channel_id || 'none'}
+              onValueChange={(value) => setFormData({ ...formData, channel_id: value === 'none' ? '' : value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o canal de origem">
@@ -287,7 +287,7 @@ export default function LeadDetailPanel({
                 </SelectValue>
               </SelectTrigger>
               <SelectContent className="bg-card border-border">
-                <SelectItem value="">Nenhum</SelectItem>
+                <SelectItem value="none">Nenhum</SelectItem>
                 {channels.map((channel) => (
                   <SelectItem key={channel.id} value={channel.id}>
                     <div className="flex items-center gap-2">
