@@ -105,6 +105,7 @@ export default function TrafegoPago() {
   const [showAddMetricDialog, setShowAddMetricDialog] = useState(false);
   const [editingGroup, setEditingGroup] = useState<CampaignGroup | null>(null);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
+  const [editingMetric, setEditingMetric] = useState<CampaignMetric | null>(null);
 
   // Form states
   const [groupForm, setGroupForm] = useState({
@@ -399,7 +400,7 @@ export default function TrafegoPago() {
     }
   };
 
-  // Add metric entry
+  // Add/Edit metric entry
   const handleSaveMetric = async () => {
     if (!selectedCampaign) return;
 
@@ -414,15 +415,32 @@ export default function TrafegoPago() {
     }
 
     try {
-      const { error } = await supabase.from('campaign_metrics').insert({
-        campaign_id: selectedCampaign.id,
-        metric_date: metricForm.metric_date,
-        metrics: metricsData,
-        notes: metricForm.notes || null,
-      });
-      if (error) throw error;
-      toast.success('Métricas registradas!');
+      if (editingMetric) {
+        // Update existing metric
+        const { error } = await supabase
+          .from('campaign_metrics')
+          .update({
+            metric_date: metricForm.metric_date,
+            metrics: metricsData,
+            notes: metricForm.notes || null,
+          })
+          .eq('id', editingMetric.id);
+        if (error) throw error;
+        toast.success('Métricas atualizadas!');
+      } else {
+        // Insert new metric
+        const { error } = await supabase.from('campaign_metrics').insert({
+          campaign_id: selectedCampaign.id,
+          metric_date: metricForm.metric_date,
+          metrics: metricsData,
+          notes: metricForm.notes || null,
+        });
+        if (error) throw error;
+        toast.success('Métricas registradas!');
+      }
+      
       setShowAddMetricDialog(false);
+      setEditingMetric(null);
       setMetricForm({
         metric_date: format(new Date(), 'yyyy-MM-dd'),
         metrics: {},
@@ -430,8 +448,53 @@ export default function TrafegoPago() {
         notes: '',
       });
       fetchCampaignMetrics(selectedCampaign.id);
+      fetchAllCampaignMetrics();
     } catch (error) {
-      toast.error('Erro ao registrar métricas');
+      toast.error('Erro ao salvar métricas');
+    }
+  };
+
+  const handleOpenMetricDialog = (metric?: CampaignMetric) => {
+    if (metric) {
+      setEditingMetric(metric);
+      const metricsWithoutSpending: Record<string, string> = {};
+      Object.entries(metric.metrics).forEach(([key, value]) => {
+        if (key !== '_spending') {
+          metricsWithoutSpending[key] = value.toString();
+        }
+      });
+      setMetricForm({
+        metric_date: metric.metric_date,
+        metrics: metricsWithoutSpending,
+        spending: metric.metrics['_spending']?.toString() || '',
+        notes: metric.notes || '',
+      });
+    } else {
+      setEditingMetric(null);
+      setMetricForm({
+        metric_date: format(new Date(), 'yyyy-MM-dd'),
+        metrics: {},
+        spending: '',
+        notes: '',
+      });
+    }
+    setShowAddMetricDialog(true);
+  };
+
+  const handleDeleteMetric = async (metricId: string) => {
+    if (!selectedCampaign) return;
+    
+    try {
+      const { error } = await supabase
+        .from('campaign_metrics')
+        .delete()
+        .eq('id', metricId);
+      if (error) throw error;
+      toast.success('Registro excluído!');
+      fetchCampaignMetrics(selectedCampaign.id);
+      fetchAllCampaignMetrics();
+    } catch (error) {
+      toast.error('Erro ao excluir registro');
     }
   };
 
@@ -1104,7 +1167,7 @@ export default function TrafegoPago() {
                     {PLATFORMS.find((p) => p.value === selectedCampaign.platform)?.label}
                   </p>
                 </div>
-                <Button onClick={() => setShowAddMetricDialog(true)}>
+                <Button onClick={() => handleOpenMetricDialog()}>
                   <Plus className="w-4 h-4 mr-2" />
                   Registrar Métricas
                 </Button>
@@ -1206,6 +1269,7 @@ export default function TrafegoPago() {
                                 {def.name}
                               </th>
                             ))}
+                            <th className="text-center p-3 w-24">Ações</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1226,6 +1290,24 @@ export default function TrafegoPago() {
                                     : '-'}
                                 </td>
                               ))}
+                              <td className="p-3">
+                                <div className="flex items-center justify-center gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleOpenMetricDialog(m)}
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleDeleteMetric(m.id)}
+                                  >
+                                    <Trash2 className="w-4 h-4 text-destructive" />
+                                  </Button>
+                                </div>
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -1352,11 +1434,16 @@ export default function TrafegoPago() {
         </DialogContent>
       </Dialog>
 
-      {/* Add Metric Dialog */}
-      <Dialog open={showAddMetricDialog} onOpenChange={setShowAddMetricDialog}>
+      {/* Add/Edit Metric Dialog */}
+      <Dialog open={showAddMetricDialog} onOpenChange={(open) => {
+        setShowAddMetricDialog(open);
+        if (!open) setEditingMetric(null);
+      }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Registrar Métricas do Dia</DialogTitle>
+            <DialogTitle>
+              {editingMetric ? 'Editar Métricas' : 'Registrar Métricas do Dia'}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
