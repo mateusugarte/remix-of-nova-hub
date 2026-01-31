@@ -126,6 +126,7 @@ export default function TrafegoPago() {
   const [metricForm, setMetricForm] = useState({
     metric_date: format(new Date(), 'yyyy-MM-dd'),
     metrics: {} as Record<string, string>,
+    spending: '',
     notes: '',
   });
 
@@ -372,6 +373,11 @@ export default function TrafegoPago() {
     Object.entries(metricForm.metrics).forEach(([key, value]) => {
       if (value) metricsData[key] = parseFloat(value);
     });
+    
+    // Add spending to metrics data
+    if (metricForm.spending) {
+      metricsData['_spending'] = parseFloat(metricForm.spending);
+    }
 
     try {
       const { error } = await supabase.from('campaign_metrics').insert({
@@ -386,6 +392,7 @@ export default function TrafegoPago() {
       setMetricForm({
         metric_date: format(new Date(), 'yyyy-MM-dd'),
         metrics: {},
+        spending: '',
         notes: '',
       });
       fetchCampaignMetrics(selectedCampaign.id);
@@ -423,6 +430,20 @@ export default function TrafegoPago() {
   const getTotalBudget = () => {
     if (!selectedGroup) return 0;
     return getGroupCampaigns().reduce((sum, c) => sum + (c.budget || 0), 0);
+  };
+
+  const getTotalSpending = () => {
+    return campaignMetrics.reduce((sum, m) => sum + (m.metrics['_spending'] || 0), 0);
+  };
+
+  const getChartDataWithSpending = () => {
+    return campaignMetrics.map((m) => ({
+      date: format(parseISO(m.metric_date), 'dd/MM'),
+      Gasto: m.metrics['_spending'] || 0,
+      ...Object.fromEntries(
+        Object.entries(m.metrics).filter(([key]) => key !== '_spending')
+      ),
+    }));
   };
 
   if (loading) {
@@ -963,11 +984,35 @@ export default function TrafegoPago() {
                 </Button>
               </CardHeader>
               <CardContent className="space-y-6">
+                {/* Spending Summary */}
+                {campaignMetrics.length > 0 && (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="p-4 bg-gradient-to-br from-red-500/10 to-transparent rounded-lg">
+                      <p className="text-sm text-muted-foreground">Total Gasto</p>
+                      <p className="text-2xl font-bold text-red-500">
+                        R$ {getTotalSpending().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-gradient-to-br from-blue-500/10 to-transparent rounded-lg">
+                      <p className="text-sm text-muted-foreground">Budget Definido</p>
+                      <p className="text-2xl font-bold text-blue-500">
+                        R$ {selectedCampaign.budget.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-gradient-to-br from-green-500/10 to-transparent rounded-lg">
+                      <p className="text-sm text-muted-foreground">Restante</p>
+                      <p className={`text-2xl font-bold ${selectedCampaign.budget - getTotalSpending() >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        R$ {(selectedCampaign.budget - getTotalSpending()).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Chart */}
-                {campaignMetrics.length > 0 && metricDefs.length > 0 ? (
+                {campaignMetrics.length > 0 ? (
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={getChartData()}>
+                      <LineChart data={getChartDataWithSpending()}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
                         <XAxis dataKey="date" className="text-xs" />
                         <YAxis className="text-xs" />
@@ -977,6 +1022,17 @@ export default function TrafegoPago() {
                             border: '1px solid hsl(var(--border))',
                             borderRadius: '8px',
                           }}
+                          formatter={(value: number, name: string) => [
+                            name === 'Gasto' ? `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : value,
+                            name
+                          ]}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="Gasto"
+                          stroke="#EF4444"
+                          strokeWidth={2}
+                          dot={{ r: 4 }}
                         />
                         {metricDefs.map((def) => (
                           <Line
@@ -996,9 +1052,7 @@ export default function TrafegoPago() {
                     <div className="text-center">
                       <BarChart3 className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
                       <p className="text-muted-foreground">
-                        {metricDefs.length === 0
-                          ? 'Crie métricas para acompanhar'
-                          : 'Registre métricas para ver o gráfico'}
+                        Registre métricas para ver o gráfico
                       </p>
                     </div>
                   </div>
@@ -1007,12 +1061,13 @@ export default function TrafegoPago() {
                 {/* Metrics Table */}
                 {campaignMetrics.length > 0 && (
                   <div className="space-y-2">
-                    <h3 className="font-semibold">Histórico de Métricas</h3>
-                    <div className="border rounded-lg overflow-hidden">
+                    <h3 className="font-semibold">Histórico de Métricas e Gastos</h3>
+                    <div className="border rounded-lg overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead className="bg-secondary/50">
                           <tr>
                             <th className="text-left p-3">Data</th>
+                            <th className="text-right p-3 text-red-500">Gasto (R$)</th>
                             {metricDefs.map((def) => (
                               <th key={def.id} className="text-right p-3">
                                 {def.name}
@@ -1022,9 +1077,14 @@ export default function TrafegoPago() {
                         </thead>
                         <tbody>
                           {[...campaignMetrics].reverse().map((m) => (
-                            <tr key={m.id} className="border-t">
-                              <td className="p-3">
+                            <tr key={m.id} className="border-t hover:bg-secondary/20">
+                              <td className="p-3 font-medium">
                                 {format(parseISO(m.metric_date), 'dd/MM/yyyy')}
+                              </td>
+                              <td className="text-right p-3 text-red-500 font-medium">
+                                {m.metrics['_spending'] !== undefined
+                                  ? `R$ ${m.metrics['_spending'].toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                  : '-'}
                               </td>
                               {metricDefs.map((def) => (
                                 <td key={def.id} className="text-right p-3">
@@ -1172,7 +1232,7 @@ export default function TrafegoPago() {
       <Dialog open={showAddMetricDialog} onOpenChange={setShowAddMetricDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Registrar Métricas</DialogTitle>
+            <DialogTitle>Registrar Métricas do Dia</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -1184,10 +1244,27 @@ export default function TrafegoPago() {
               />
             </div>
 
+            {/* Spending Field - Always visible */}
+            <div className="space-y-2 p-4 bg-red-500/10 rounded-lg border border-red-500/20">
+              <Label className="flex items-center gap-2 text-red-500">
+                <DollarSign className="w-4 h-4" />
+                Gasto do Dia (R$)
+              </Label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="0,00"
+                value={metricForm.spending}
+                onChange={(e) => setMetricForm({ ...metricForm, spending: e.target.value })}
+                className="border-red-500/30 focus-visible:ring-red-500/50"
+              />
+            </div>
+
+            {/* Custom Metrics */}
             {metricDefs.length === 0 ? (
               <div className="p-4 bg-secondary/30 rounded-lg text-center">
                 <p className="text-sm text-muted-foreground mb-2">
-                  Nenhuma métrica definida
+                  Nenhuma métrica personalizada definida
                 </p>
                 <Button
                   variant="outline"
@@ -1203,6 +1280,7 @@ export default function TrafegoPago() {
               </div>
             ) : (
               <div className="space-y-3">
+                <Label className="text-muted-foreground text-xs uppercase tracking-wide">Métricas Personalizadas</Label>
                 {metricDefs.map((def) => (
                   <div key={def.id} className="space-y-1">
                     <Label className="flex items-center gap-2">
@@ -1242,7 +1320,7 @@ export default function TrafegoPago() {
             <Button variant="outline" onClick={() => setShowAddMetricDialog(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleSaveMetric} disabled={metricDefs.length === 0}>
+            <Button onClick={handleSaveMetric}>
               <Save className="w-4 h-4 mr-2" />
               Salvar
             </Button>
