@@ -90,7 +90,12 @@ export default function TrafegoPago() {
   const [selectedGroup, setSelectedGroup] = useState<CampaignGroup | null>(null);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [campaignMetrics, setCampaignMetrics] = useState<CampaignMetric[]>([]);
+  const [allCampaignMetrics, setAllCampaignMetrics] = useState<Record<string, CampaignMetric[]>>({});
   const [loading, setLoading] = useState(true);
+
+  // Filter states
+  const [filterStartDate, setFilterStartDate] = useState<string>('');
+  const [filterEndDate, setFilterEndDate] = useState<string>('');
 
   // Dialog states
   const [showGroupDialog, setShowGroupDialog] = useState(false);
@@ -138,8 +143,37 @@ export default function TrafegoPago() {
 
   const fetchData = async () => {
     setLoading(true);
-    await Promise.all([fetchCampaignGroups(), fetchCampaigns(), fetchMetricDefs()]);
+    await Promise.all([fetchCampaignGroups(), fetchCampaigns(), fetchMetricDefs(), fetchAllCampaignMetrics()]);
     setLoading(false);
+  };
+
+  const fetchAllCampaignMetrics = async () => {
+    if (!user) return;
+    const { data: campaignsData } = await supabase
+      .from('ad_campaigns')
+      .select('id')
+      .eq('user_id', user.id);
+    
+    if (!campaignsData) return;
+    
+    const campaignIds = campaignsData.map(c => c.id);
+    const { data: metricsData } = await supabase
+      .from('campaign_metrics')
+      .select('*')
+      .in('campaign_id', campaignIds)
+      .order('metric_date', { ascending: true });
+    
+    if (!metricsData) return;
+    
+    const groupedMetrics: Record<string, CampaignMetric[]> = {};
+    metricsData.forEach(m => {
+      const metric = { ...m, metrics: m.metrics as Record<string, number> };
+      if (!groupedMetrics[m.campaign_id]) {
+        groupedMetrics[m.campaign_id] = [];
+      }
+      groupedMetrics[m.campaign_id].push(metric);
+    });
+    setAllCampaignMetrics(groupedMetrics);
   };
 
   const fetchCampaignGroups = async () => {
@@ -432,18 +466,39 @@ export default function TrafegoPago() {
     return getGroupCampaigns().reduce((sum, c) => sum + (c.budget || 0), 0);
   };
 
+  const getFilteredMetrics = (metrics: CampaignMetric[]) => {
+    return metrics.filter(m => {
+      const metricDate = m.metric_date;
+      if (filterStartDate && metricDate < filterStartDate) return false;
+      if (filterEndDate && metricDate > filterEndDate) return false;
+      return true;
+    });
+  };
+
   const getTotalSpending = () => {
-    return campaignMetrics.reduce((sum, m) => sum + (m.metrics['_spending'] || 0), 0);
+    const filtered = getFilteredMetrics(campaignMetrics);
+    return filtered.reduce((sum, m) => sum + (m.metrics['_spending'] || 0), 0);
+  };
+
+  const getCampaignSpending = (campaignId: string) => {
+    const metrics = allCampaignMetrics[campaignId] || [];
+    const filtered = getFilteredMetrics(metrics);
+    return filtered.reduce((sum, m) => sum + (m.metrics['_spending'] || 0), 0);
   };
 
   const getChartDataWithSpending = () => {
-    return campaignMetrics.map((m) => ({
+    const filtered = getFilteredMetrics(campaignMetrics);
+    return filtered.map((m) => ({
       date: format(parseISO(m.metric_date), 'dd/MM'),
       Gasto: m.metrics['_spending'] || 0,
       ...Object.fromEntries(
         Object.entries(m.metrics).filter(([key]) => key !== '_spending')
       ),
     }));
+  };
+
+  const getFilteredMetricsForTable = () => {
+    return getFilteredMetrics(campaignMetrics);
   };
 
   if (loading) {
@@ -894,6 +949,47 @@ export default function TrafegoPago() {
         </Card>
       </div>
 
+      {/* Date Filter */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Filtrar por período:</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                type="date"
+                className="w-40"
+                value={filterStartDate}
+                onChange={(e) => setFilterStartDate(e.target.value)}
+                placeholder="Data início"
+              />
+              <span className="text-muted-foreground">até</span>
+              <Input
+                type="date"
+                className="w-40"
+                value={filterEndDate}
+                onChange={(e) => setFilterEndDate(e.target.value)}
+                placeholder="Data fim"
+              />
+              {(filterStartDate || filterEndDate) && (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => {
+                    setFilterStartDate('');
+                    setFilterEndDate('');
+                  }}
+                >
+                  Limpar
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Campaigns List */}
@@ -910,56 +1006,73 @@ export default function TrafegoPago() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {getGroupCampaigns().map((campaign) => (
-                <Card
-                  key={campaign.id}
-                  className={`cursor-pointer transition-all hover:border-primary/50 ${
-                    selectedCampaign?.id === campaign.id
-                      ? 'border-primary bg-primary/5'
-                      : ''
-                  }`}
-                  onClick={() => handleSelectCampaign(campaign)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-1 flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold">{campaign.name}</h3>
-                          {getStatusBadge(campaign.status)}
+              {getGroupCampaigns().map((campaign) => {
+                const spending = getCampaignSpending(campaign.id);
+                const remaining = campaign.budget - spending;
+                
+                return (
+                  <Card
+                    key={campaign.id}
+                    className={`cursor-pointer transition-all hover:border-primary/50 ${
+                      selectedCampaign?.id === campaign.id
+                        ? 'border-primary bg-primary/5'
+                        : ''
+                    }`}
+                    onClick={() => handleSelectCampaign(campaign)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-1 flex-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold">{campaign.name}</h3>
+                            {getStatusBadge(campaign.status)}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {PLATFORMS.find((p) => p.value === campaign.platform)?.label}
+                          </p>
+                          <div className="flex items-center gap-4 text-sm">
+                            <span className="text-muted-foreground">
+                              Budget: <span className="font-medium text-blue-500">R$ {campaign.budget.toLocaleString('pt-BR')}</span>
+                            </span>
+                          </div>
+                          {spending > 0 && (
+                            <div className="flex items-center gap-3 text-sm pt-1">
+                              <span className="text-red-500 font-medium">
+                                Gasto: R$ {spending.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </span>
+                              <span className={`font-medium ${remaining >= 0 ? 'text-green-500' : 'text-destructive'}`}>
+                                Restante: R$ {remaining.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                          )}
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          {PLATFORMS.find((p) => p.value === campaign.platform)?.label}
-                        </p>
-                        <p className="text-sm font-medium text-primary">
-                          R$ {campaign.budget.toLocaleString('pt-BR')}
-                        </p>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenCampaignDialog(campaign);
+                            }}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteCampaign(campaign.id);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenCampaignDialog(campaign);
-                          }}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteCampaign(campaign.id);
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>
@@ -1059,9 +1172,16 @@ export default function TrafegoPago() {
                 )}
 
                 {/* Metrics Table */}
-                {campaignMetrics.length > 0 && (
+                {getFilteredMetricsForTable().length > 0 && (
                   <div className="space-y-2">
-                    <h3 className="font-semibold">Histórico de Métricas e Gastos</h3>
+                    <h3 className="font-semibold">
+                      Histórico de Métricas e Gastos
+                      {(filterStartDate || filterEndDate) && (
+                        <span className="text-sm font-normal text-muted-foreground ml-2">
+                          (filtrado por período)
+                        </span>
+                      )}
+                    </h3>
                     <div className="border rounded-lg overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead className="bg-secondary/50">
@@ -1076,7 +1196,7 @@ export default function TrafegoPago() {
                           </tr>
                         </thead>
                         <tbody>
-                          {[...campaignMetrics].reverse().map((m) => (
+                          {[...getFilteredMetricsForTable()].reverse().map((m) => (
                             <tr key={m.id} className="border-t hover:bg-secondary/20">
                               <td className="p-3 font-medium">
                                 {format(parseISO(m.metric_date), 'dd/MM/yyyy')}
