@@ -32,6 +32,7 @@ interface CampaignGroup {
   description: string | null;
   planning: string | null;
   status: string;
+  budget: number | null;
   created_at: string;
 }
 
@@ -111,13 +112,13 @@ export default function TrafegoPago() {
     description: '',
     planning: '',
     status: 'active',
+    budget: '',
   });
 
   const [campaignForm, setCampaignForm] = useState({
     name: '',
     platform: 'meta',
     status: 'active',
-    budget: '',
     start_date: '',
     end_date: '',
     notes: '',
@@ -227,10 +228,11 @@ export default function TrafegoPago() {
         description: group.description || '',
         planning: group.planning || '',
         status: group.status,
+        budget: group.budget?.toString() || '',
       });
     } else {
       setEditingGroup(null);
-      setGroupForm({ name: '', description: '', planning: '', status: 'active' });
+      setGroupForm({ name: '', description: '', planning: '', status: 'active', budget: '' });
     }
     setShowGroupDialog(true);
   };
@@ -243,6 +245,7 @@ export default function TrafegoPago() {
       description: groupForm.description || null,
       planning: groupForm.planning || null,
       status: groupForm.status,
+      budget: parseFloat(groupForm.budget) || 0,
     };
 
     try {
@@ -294,7 +297,6 @@ export default function TrafegoPago() {
         name: campaign.name,
         platform: campaign.platform,
         status: campaign.status,
-        budget: campaign.budget.toString(),
         start_date: campaign.start_date || '',
         end_date: campaign.end_date || '',
         notes: campaign.notes || '',
@@ -305,7 +307,6 @@ export default function TrafegoPago() {
         name: '',
         platform: 'meta',
         status: 'active',
-        budget: '',
         start_date: '',
         end_date: '',
         notes: '',
@@ -321,7 +322,6 @@ export default function TrafegoPago() {
       name: campaignForm.name,
       platform: campaignForm.platform,
       status: campaignForm.status,
-      budget: parseFloat(campaignForm.budget) || 0,
       start_date: campaignForm.start_date || null,
       end_date: campaignForm.end_date || null,
       notes: campaignForm.notes || null,
@@ -463,7 +463,7 @@ export default function TrafegoPago() {
 
   const getTotalBudget = () => {
     if (!selectedGroup) return 0;
-    return getGroupCampaigns().reduce((sum, c) => sum + (c.budget || 0), 0);
+    return selectedGroup.budget || 0;
   };
 
   const getFilteredMetrics = (metrics: CampaignMetric[]) => {
@@ -484,6 +484,12 @@ export default function TrafegoPago() {
     const metrics = allCampaignMetrics[campaignId] || [];
     const filtered = getFilteredMetrics(metrics);
     return filtered.reduce((sum, m) => sum + (m.metrics['_spending'] || 0), 0);
+  };
+
+  const getGroupTotalSpending = () => {
+    if (!selectedGroup) return 0;
+    const groupCampaignIds = campaigns.filter(c => c.group_id === selectedGroup.id).map(c => c.id);
+    return groupCampaignIds.reduce((sum, id) => sum + getCampaignSpending(id), 0);
   };
 
   const getChartDataWithSpending = () => {
@@ -572,7 +578,7 @@ export default function TrafegoPago() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">
-                    R$ {campaigns.reduce((sum, c) => sum + (c.budget || 0), 0).toLocaleString('pt-BR')}
+                    R$ {campaignGroups.reduce((sum, g) => sum + (g.budget || 0), 0).toLocaleString('pt-BR')}
                   </p>
                   <p className="text-sm text-muted-foreground">Budget Total</p>
                 </div>
@@ -611,7 +617,7 @@ export default function TrafegoPago() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {campaignGroups.map((group) => {
               const groupCampaigns = campaigns.filter(c => c.group_id === group.id);
-              const totalBudget = groupCampaigns.reduce((sum, c) => sum + (c.budget || 0), 0);
+              const totalBudget = group.budget || 0;
               const activeCampaigns = groupCampaigns.filter(c => c.status === 'active').length;
               
               return (
@@ -803,11 +809,27 @@ export default function TrafegoPago() {
               <div className="space-y-2">
                 <Label>Planejamento</Label>
                 <Textarea
-                  placeholder="Estratégia, objetivos, público-alvo, orçamento planejado..."
+                  placeholder="Estratégia, objetivos, público-alvo..."
                   value={groupForm.planning}
                   onChange={(e) => setGroupForm({ ...groupForm, planning: e.target.value })}
                   rows={4}
                 />
+              </div>
+              <div className="space-y-2 p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                <Label className="flex items-center gap-2 text-blue-500">
+                  <DollarSign className="w-4 h-4" />
+                  Budget Total (R$)
+                </Label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={groupForm.budget}
+                  onChange={(e) => setGroupForm({ ...groupForm, budget: e.target.value })}
+                  className="border-blue-500/30 focus-visible:ring-blue-500/50"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Este valor será compartilhado entre todas as campanhas deste grupo
+                </p>
               </div>
             </div>
             <DialogFooter>
@@ -1008,7 +1030,6 @@ export default function TrafegoPago() {
             <div className="space-y-3">
               {getGroupCampaigns().map((campaign) => {
                 const spending = getCampaignSpending(campaign.id);
-                const remaining = campaign.budget - spending;
                 
                 return (
                   <Card
@@ -1030,18 +1051,10 @@ export default function TrafegoPago() {
                           <p className="text-sm text-muted-foreground">
                             {PLATFORMS.find((p) => p.value === campaign.platform)?.label}
                           </p>
-                          <div className="flex items-center gap-4 text-sm">
-                            <span className="text-muted-foreground">
-                              Budget: <span className="font-medium text-blue-500">R$ {campaign.budget.toLocaleString('pt-BR')}</span>
-                            </span>
-                          </div>
                           {spending > 0 && (
                             <div className="flex items-center gap-3 text-sm pt-1">
                               <span className="text-red-500 font-medium">
                                 Gasto: R$ {spending.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                              </span>
-                              <span className={`font-medium ${remaining >= 0 ? 'text-green-500' : 'text-destructive'}`}>
-                                Restante: R$ {remaining.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                               </span>
                             </div>
                           )}
@@ -1097,25 +1110,25 @@ export default function TrafegoPago() {
                 </Button>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Spending Summary */}
+                {/* Spending Summary - shows campaign spending vs group budget */}
                 {campaignMetrics.length > 0 && (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     <div className="p-4 bg-gradient-to-br from-red-500/10 to-transparent rounded-lg">
-                      <p className="text-sm text-muted-foreground">Total Gasto</p>
+                      <p className="text-sm text-muted-foreground">Gasto (campanha)</p>
                       <p className="text-2xl font-bold text-red-500">
                         R$ {getTotalSpending().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
                     </div>
                     <div className="p-4 bg-gradient-to-br from-blue-500/10 to-transparent rounded-lg">
-                      <p className="text-sm text-muted-foreground">Budget Definido</p>
+                      <p className="text-sm text-muted-foreground">Budget (grupo)</p>
                       <p className="text-2xl font-bold text-blue-500">
-                        R$ {selectedCampaign.budget.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {(selectedGroup?.budget || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
                     </div>
                     <div className="p-4 bg-gradient-to-br from-green-500/10 to-transparent rounded-lg">
-                      <p className="text-sm text-muted-foreground">Restante</p>
-                      <p className={`text-2xl font-bold ${selectedCampaign.budget - getTotalSpending() >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                        R$ {(selectedCampaign.budget - getTotalSpending()).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      <p className="text-sm text-muted-foreground">Restante (grupo)</p>
+                      <p className={`text-2xl font-bold ${(selectedGroup?.budget || 0) - getGroupTotalSpending() >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        R$ {((selectedGroup?.budget || 0) - getGroupTotalSpending()).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
                     </div>
                   </div>
@@ -1298,15 +1311,6 @@ export default function TrafegoPago() {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Budget (R$)</Label>
-              <Input
-                type="number"
-                placeholder="0"
-                value={campaignForm.budget}
-                onChange={(e) => setCampaignForm({ ...campaignForm, budget: e.target.value })}
-              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
