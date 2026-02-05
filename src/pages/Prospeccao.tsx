@@ -34,11 +34,11 @@ interface Prospect {
 }
 
 const KANBAN_COLUMNS: KanbanColumn[] = [
-  { id: 'nao_atendeu', title: 'Não Atendeu', color: '#6B7280' },
+  { id: 'entrar_contato', title: 'Entrar em Contato', color: '#6B7280' },
+  { id: 'mensagem_enviada', title: 'Mensagem Enviada', color: '#8B5CF6' },
+  { id: 'respondeu', title: 'Respondeu', color: '#F59E0B' },
   { id: 'rejeitou', title: 'Rejeitou', color: '#EF4444' },
-  { id: 'ligar_depois', title: 'Ligar Depois', color: '#F59E0B' },
-  { id: 'agendou_reuniao', title: 'Agendou Reunião', color: '#3B82F6' },
-  { id: 'vendido', title: 'Vendido', color: '#10B981' },
+  { id: 'agendou', title: 'Agendou', color: '#10B981' },
 ];
 
 export default function Prospeccao() {
@@ -51,11 +51,11 @@ export default function Prospeccao() {
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState({
     total: 0,
-    naoAtendeu: 0,
+    entrarContato: 0,
+    mensagemEnviada: 0,
+    respondeu: 0,
     rejeitou: 0,
-    ligarDepois: 0,
-    agendouReuniao: 0,
-    vendido: 0,
+    agendou: 0,
   });
 
   useEffect(() => {
@@ -76,10 +76,11 @@ export default function Prospeccao() {
     // Map old statuses to new ones
     const mappedData = (data || []).map((p) => {
       let newStatus = p.status;
-      if (p.status === 'follow_up') newStatus = 'nao_atendeu';
-      if (p.status === 'scheduled') newStatus = 'agendou_reuniao';
-      if (p.status === 'rejected') newStatus = 'rejeitou';
-      if (p.status === 'converted') newStatus = 'vendido';
+      if (p.status === 'nao_atendeu' || p.status === 'follow_up') newStatus = 'entrar_contato';
+      if (p.status === 'ligar_depois') newStatus = 'mensagem_enviada';
+      if (p.status === 'scheduled') newStatus = 'agendou';
+      if (p.status === 'agendou_reuniao') newStatus = 'agendou';
+      if (p.status === 'converted' || p.status === 'vendido') newStatus = 'agendou';
       return { ...p, status: newStatus, socios: p.socios as string[] | null };
     });
 
@@ -87,13 +88,13 @@ export default function Prospeccao() {
 
     // Calculate stats
     const total = mappedData.length;
-    const naoAtendeu = mappedData.filter((p) => p.status === 'nao_atendeu').length;
+    const entrarContato = mappedData.filter((p) => p.status === 'entrar_contato').length;
+    const mensagemEnviada = mappedData.filter((p) => p.status === 'mensagem_enviada').length;
+    const respondeu = mappedData.filter((p) => p.status === 'respondeu').length;
     const rejeitou = mappedData.filter((p) => p.status === 'rejeitou').length;
-    const ligarDepois = mappedData.filter((p) => p.status === 'ligar_depois').length;
-    const agendouReuniao = mappedData.filter((p) => p.status === 'agendou_reuniao').length;
-    const vendido = mappedData.filter((p) => p.status === 'vendido').length;
+    const agendou = mappedData.filter((p) => p.status === 'agendou').length;
 
-    setStats({ total, naoAtendeu, rejeitou, ligarDepois, agendouReuniao, vendido });
+    setStats({ total, entrarContato, mensagemEnviada, respondeu, rejeitou, agendou });
   };
 
   const handleMoveCard = async (cardId: string, newStatus: string) => {
@@ -148,7 +149,7 @@ export default function Prospeccao() {
       const { error } = await supabase.from('prospects').insert({
         ...dataToSave,
         user_id: user.id,
-        status: 'nao_atendeu',
+        status: 'entrar_contato',
       });
 
       if (error) {
@@ -195,7 +196,7 @@ export default function Prospeccao() {
     );
   });
 
-  const conversionRate = stats.total > 0 ? Math.round((stats.vendido / stats.total) * 100) : 0;
+  const conversionRate = stats.total > 0 ? Math.round((stats.agendou / stats.total) * 100) : 0;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -221,11 +222,11 @@ export default function Prospeccao() {
       {/* Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <MetricCard title="Total" value={stats.total} icon={<Users className="w-5 h-5" />} />
-        <MetricCard title="Não Atendeu" value={stats.naoAtendeu} />
+        <MetricCard title="A Contatar" value={stats.entrarContato} />
+        <MetricCard title="Msg Enviada" value={stats.mensagemEnviada} />
+        <MetricCard title="Respondeu" value={stats.respondeu} />
         <MetricCard title="Rejeitou" value={stats.rejeitou} />
-        <MetricCard title="Ligar Depois" value={stats.ligarDepois} />
-        <MetricCard title="Reuniões" value={stats.agendouReuniao} />
-        <MetricCard title="Conversão" value={`${conversionRate}%`} />
+        <MetricCard title="Agendou" value={stats.agendou} />
       </div>
 
       {/* Search */}
