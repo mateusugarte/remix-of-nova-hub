@@ -4,7 +4,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Users, Settings2 } from 'lucide-react';
+import { Plus, Search, Users, Settings2, CalendarIcon, X } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import MetricCard from '@/components/dashboard/MetricCard';
 import KanbanBoard, { KanbanColumn } from '@/components/kanban/KanbanBoard';
 import LeadCard from '@/components/kanban/LeadCard';
@@ -52,6 +56,8 @@ export default function Prospeccao() {
   const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(null);
   const [loading, setLoading] = useState(false);
   const [dynamicColumns, setDynamicColumns] = useState<ProspectColumn[]>([]);
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
 
   useEffect(() => {
     if (user) {
@@ -90,13 +96,7 @@ export default function Prospeccao() {
       .order('created_at', { ascending: false });
 
     const mappedData = (data || []).map((p) => {
-      let newStatus = p.status;
-      if (p.status === 'nao_atendeu' || p.status === 'follow_up') newStatus = 'entrar_contato';
-      if (p.status === 'ligar_depois') newStatus = 'mensagem_enviada';
-      if (p.status === 'scheduled') newStatus = 'agendou';
-      if (p.status === 'agendou_reuniao') newStatus = 'agendou';
-      if (p.status === 'converted' || p.status === 'vendido') newStatus = 'agendou';
-      return { ...p, status: newStatus, socios: p.socios as string[] | null };
+      return { ...p, socios: p.socios as string[] | null };
     });
 
     setProspects(mappedData);
@@ -234,6 +234,18 @@ export default function Prospeccao() {
   };
 
   const filteredProspects = prospects.filter((prospect) => {
+    // Date filter
+    if (dateFrom) {
+      const created = new Date(prospect.created_at);
+      if (created < dateFrom) return false;
+    }
+    if (dateTo) {
+      const created = new Date(prospect.created_at);
+      const endOfDay = new Date(dateTo);
+      endOfDay.setHours(23, 59, 59, 999);
+      if (created > endOfDay) return false;
+    }
+    // Text filter
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
     return (
@@ -286,15 +298,46 @@ export default function Prospeccao() {
         ))}
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar por telefone, Instagram, dono ou nicho..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
+      {/* Search & Date Filter */}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        <div className="relative max-w-md flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por telefone, Instagram, dono ou nicho..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <div className="flex gap-2 items-center">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <CalendarIcon className="w-4 h-4" />
+                {dateFrom ? format(dateFrom, 'dd/MM/yy', { locale: ptBR }) : 'De'}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} locale={ptBR} />
+            </PopoverContent>
+          </Popover>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <CalendarIcon className="w-4 h-4" />
+                {dateTo ? format(dateTo, 'dd/MM/yy', { locale: ptBR }) : 'Até'}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={dateTo} onSelect={setDateTo} locale={ptBR} />
+            </PopoverContent>
+          </Popover>
+          {(dateFrom || dateTo) && (
+            <Button variant="ghost" size="icon" onClick={() => { setDateFrom(undefined); setDateTo(undefined); }}>
+              <X className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Kanban Board */}
