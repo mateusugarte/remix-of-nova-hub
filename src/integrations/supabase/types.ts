@@ -1208,6 +1208,33 @@ export type Database = {
         }
         Relationships: []
       }
+      prospect_columns: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          order_index: number
+          title: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          order_index?: number
+          title: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          order_index?: number
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       prospects: {
         Row: {
           approach_description: string | null

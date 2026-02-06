@@ -4,11 +4,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Users } from 'lucide-react';
+import { Plus, Search, Users, Settings2 } from 'lucide-react';
 import MetricCard from '@/components/dashboard/MetricCard';
 import KanbanBoard, { KanbanColumn } from '@/components/kanban/KanbanBoard';
 import LeadCard from '@/components/kanban/LeadCard';
 import LeadFormDialog from '@/components/kanban/LeadFormDialog';
+import ColumnManagerDialog, { ProspectColumn } from '@/components/prospeccao/ColumnManagerDialog';
 
 interface Prospect {
   id: string;
@@ -33,12 +34,12 @@ interface Prospect {
   socios: string[] | null;
 }
 
-const KANBAN_COLUMNS: KanbanColumn[] = [
-  { id: 'entrar_contato', title: 'Entrar em Contato', color: '#6B7280' },
-  { id: 'mensagem_enviada', title: 'Mensagem Enviada', color: '#8B5CF6' },
-  { id: 'respondeu', title: 'Respondeu', color: '#F59E0B' },
-  { id: 'rejeitou', title: 'Rejeitou', color: '#EF4444' },
-  { id: 'agendou', title: 'Agendou', color: '#10B981' },
+const DEFAULT_COLUMNS = [
+  { title: 'Entrar em Contato', color: '#6B7280', order_index: 0 },
+  { title: 'Mensagem Enviada', color: '#8B5CF6', order_index: 1 },
+  { title: 'Respondeu', color: '#F59E0B', order_index: 2 },
+  { title: 'Rejeitou', color: '#EF4444', order_index: 3 },
+  { title: 'Agendou', color: '#10B981', order_index: 4 },
 ];
 
 export default function Prospeccao() {
@@ -47,33 +48,47 @@ export default function Prospeccao() {
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isColumnManagerOpen, setIsColumnManagerOpen] = useState(false);
   const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(null);
   const [loading, setLoading] = useState(false);
-  const [stats, setStats] = useState({
-    total: 0,
-    entrarContato: 0,
-    mensagemEnviada: 0,
-    respondeu: 0,
-    rejeitou: 0,
-    agendou: 0,
-  });
+  const [dynamicColumns, setDynamicColumns] = useState<ProspectColumn[]>([]);
 
   useEffect(() => {
     if (user) {
-      fetchData();
+      fetchColumns();
+      fetchProspects();
     }
   }, [user]);
 
-  const fetchData = async () => {
+  const fetchColumns = async () => {
     if (!user) return;
+    const { data } = await supabase
+      .from('prospect_columns')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('order_index');
 
+    if (data && data.length > 0) {
+      setDynamicColumns(data);
+    } else {
+      // Seed default columns
+      const toInsert = DEFAULT_COLUMNS.map((c) => ({ ...c, user_id: user.id }));
+      const { data: inserted } = await supabase
+        .from('prospect_columns')
+        .insert(toInsert)
+        .select();
+      if (inserted) setDynamicColumns(inserted);
+    }
+  };
+
+  const fetchProspects = async () => {
+    if (!user) return;
     const { data } = await supabase
       .from('prospects')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
-    // Map old statuses to new ones
     const mappedData = (data || []).map((p) => {
       let newStatus = p.status;
       if (p.status === 'nao_atendeu' || p.status === 'follow_up') newStatus = 'entrar_contato';
@@ -85,16 +100,54 @@ export default function Prospeccao() {
     });
 
     setProspects(mappedData);
+  };
 
-    // Calculate stats
-    const total = mappedData.length;
-    const entrarContato = mappedData.filter((p) => p.status === 'entrar_contato').length;
-    const mensagemEnviada = mappedData.filter((p) => p.status === 'mensagem_enviada').length;
-    const respondeu = mappedData.filter((p) => p.status === 'respondeu').length;
-    const rejeitou = mappedData.filter((p) => p.status === 'rejeitou').length;
-    const agendou = mappedData.filter((p) => p.status === 'agendou').length;
+  // Convert dynamic columns to KanbanColumn format (use id as column id)
+  const kanbanColumns: KanbanColumn[] = dynamicColumns
+    .sort((a, b) => a.order_index - b.order_index)
+    .map((c) => ({ id: c.id, title: c.title, color: c.color }));
 
-    setStats({ total, entrarContato, mensagemEnviada, respondeu, rejeitou, agendou });
+  // Column CRUD
+  const handleAddColumn = async (title: string, color: string) => {
+    if (!user) return;
+    const maxOrder = dynamicColumns.reduce((max, c) => Math.max(max, c.order_index), -1);
+    const { error } = await supabase
+      .from('prospect_columns')
+      .insert({ user_id: user.id, title, color, order_index: maxOrder + 1 });
+    if (error) {
+      toast({ title: 'Erro ao criar coluna', variant: 'destructive' });
+    } else {
+      fetchColumns();
+    }
+  };
+
+  const handleUpdateColumn = async (id: string, title: string, color: string) => {
+    const { error } = await supabase
+      .from('prospect_columns')
+      .update({ title, color })
+      .eq('id', id);
+    if (error) {
+      toast({ title: 'Erro ao atualizar coluna', variant: 'destructive' });
+    } else {
+      fetchColumns();
+    }
+  };
+
+  const handleDeleteColumn = async (id: string) => {
+    const prospectsInColumn = prospects.filter((p) => p.status === id);
+    if (prospectsInColumn.length > 0) {
+      toast({ title: 'Mova os leads desta coluna antes de excluí-la', variant: 'destructive' });
+      return;
+    }
+    const { error } = await supabase
+      .from('prospect_columns')
+      .delete()
+      .eq('id', id);
+    if (error) {
+      toast({ title: 'Erro ao excluir coluna', variant: 'destructive' });
+    } else {
+      fetchColumns();
+    }
   };
 
   const handleMoveCard = async (cardId: string, newStatus: string) => {
@@ -102,11 +155,10 @@ export default function Prospeccao() {
       .from('prospects')
       .update({ status: newStatus })
       .eq('id', cardId);
-
     if (error) {
       toast({ title: 'Erro ao mover card', variant: 'destructive' });
     } else {
-      fetchData();
+      fetchProspects();
     }
   };
 
@@ -136,52 +188,48 @@ export default function Prospeccao() {
         .from('prospects')
         .update(dataToSave)
         .eq('id', selectedProspect.id);
-
       if (error) {
         toast({ title: 'Erro ao atualizar', variant: 'destructive' });
       } else {
         toast({ title: 'Lead atualizado!' });
         setIsFormOpen(false);
         setSelectedProspect(null);
-        fetchData();
+        fetchProspects();
       }
     } else {
+      // Use the first column's ID as default status
+      const firstColumn = dynamicColumns.sort((a, b) => a.order_index - b.order_index)[0];
       const { error } = await supabase.from('prospects').insert({
         ...dataToSave,
         user_id: user.id,
-        status: 'entrar_contato',
+        status: firstColumn?.id || 'entrar_contato',
       });
-
       if (error) {
         toast({ title: 'Erro ao criar lead', variant: 'destructive' });
       } else {
         toast({ title: 'Lead criado!' });
         setIsFormOpen(false);
-        fetchData();
+        fetchProspects();
       }
     }
-
     setLoading(false);
   };
 
   const handleDelete = async () => {
     if (!selectedProspect) return;
     setLoading(true);
-
     const { error } = await supabase
       .from('prospects')
       .delete()
       .eq('id', selectedProspect.id);
-
     if (error) {
       toast({ title: 'Erro ao excluir', variant: 'destructive' });
     } else {
       toast({ title: 'Lead excluído!' });
       setIsFormOpen(false);
       setSelectedProspect(null);
-      fetchData();
+      fetchProspects();
     }
-
     setLoading(false);
   };
 
@@ -196,8 +244,6 @@ export default function Prospeccao() {
     );
   });
 
-  const conversionRate = stats.total > 0 ? Math.round((stats.agendou / stats.total) * 100) : 0;
-
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -207,26 +253,37 @@ export default function Prospeccao() {
             Gerencie seus leads de prospecção ativa
           </p>
         </div>
-        <Button
-          onClick={() => {
-            setSelectedProspect(null);
-            setIsFormOpen(true);
-          }}
-          className="btn-scale"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Novo Lead
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setIsColumnManagerOpen(true)}
+          >
+            <Settings2 className="w-4 h-4 mr-2" />
+            Colunas
+          </Button>
+          <Button
+            onClick={() => {
+              setSelectedProspect(null);
+              setIsFormOpen(true);
+            }}
+            className="btn-scale"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Novo Lead
+          </Button>
+        </div>
       </div>
 
       {/* Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <MetricCard title="Total" value={stats.total} icon={<Users className="w-5 h-5" />} />
-        <MetricCard title="A Contatar" value={stats.entrarContato} />
-        <MetricCard title="Msg Enviada" value={stats.mensagemEnviada} />
-        <MetricCard title="Respondeu" value={stats.respondeu} />
-        <MetricCard title="Rejeitou" value={stats.rejeitou} />
-        <MetricCard title="Agendou" value={stats.agendou} />
+        <MetricCard title="Total" value={filteredProspects.length} icon={<Users className="w-5 h-5" />} />
+        {kanbanColumns.slice(0, 5).map((col) => (
+          <MetricCard
+            key={col.id}
+            title={col.title}
+            value={filteredProspects.filter((p) => p.status === col.id).length}
+          />
+        ))}
       </div>
 
       {/* Search */}
@@ -242,7 +299,7 @@ export default function Prospeccao() {
 
       {/* Kanban Board */}
       <KanbanBoard
-        columns={KANBAN_COLUMNS}
+        columns={kanbanColumns}
         items={filteredProspects}
         onMoveCard={handleMoveCard}
         onCardClick={handleCardClick}
@@ -287,6 +344,17 @@ export default function Prospeccao() {
         onSubmit={handleSubmit}
         onDelete={handleDelete}
         loading={loading}
+      />
+
+      {/* Column Manager */}
+      <ColumnManagerDialog
+        open={isColumnManagerOpen}
+        onOpenChange={setIsColumnManagerOpen}
+        columns={dynamicColumns}
+        onAdd={handleAddColumn}
+        onUpdate={handleUpdateColumn}
+        onDelete={handleDeleteColumn}
+        onReorder={() => {}}
       />
     </div>
   );
